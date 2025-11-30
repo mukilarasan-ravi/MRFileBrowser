@@ -97,8 +97,8 @@ DESC
   #  Not including the public_header_files will make all headers public.
   #
 
-  spec.source_files = 'MRFileBrowser/Sources/MRFileBrowser/**/*.{swift}'
-  # spec.resources    = 'MRFileBrowser/Resources/**/*'
+  spec.source_files = 'Sources/MRFileBrowser/**/*.{swift}'
+  spec.resources    = 'Resources/**/*'
   spec.exclude_files    = "Classes/Exclude"
 
   # spec.public_header_files = "Classes/**/*.h"
