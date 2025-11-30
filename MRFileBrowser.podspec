@@ -25,7 +25,10 @@ Pod::Spec.new do |spec|
   #   * Write the description between the DESC delimiters below.
   #   * Finally, don't worry about the indent, CocoaPods strips it!
   spec.description  = <<-DESC
-                   DESC
+MRFileBrowser is a lightweight, customizable file browsing UI component for iOS.
+It provides a top bar, scroll-detecting search bar, file/folder list view, and a bottom toolbar. 
+Designed for developers who want to integrate a clean, modern file explorer in their app.
+DESC
 
   spec.homepage     = "https://github.com/mukilarasan-ravi/MRFileBrowser"
   # spec.screenshots  = "www.example.com/screenshots_1.gif", "www.example.com/screenshots_2.gif"
@@ -39,7 +42,7 @@ Pod::Spec.new do |spec|
   #
 
   # spec.license      = "MIT (example)"
-  spec.license      = { :type => "MIT", :file => "FILE_LICENSE" }
+  spec.license      = { :type => "MIT", :file => "LICENSE" }
 
 
   # ――― Author Metadata  ――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
@@ -65,6 +68,9 @@ Pod::Spec.new do |spec|
 
   # spec.platform     = :ios
   # spec.platform     = :ios, "5.0"
+  s.platforms = { :ios => "13.0" }
+
+
 
   #  When using multiple platforms
   # spec.ios.deployment_target = "5.0"
