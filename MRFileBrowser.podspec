@@ -68,7 +68,7 @@ DESC
 
   # spec.platform     = :ios
   # spec.platform     = :ios, "5.0"
-  s.platforms = { :ios => "13.0" }
+  spec.platforms = { :ios => "13.0" }
 
 
 
