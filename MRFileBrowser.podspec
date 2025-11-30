@@ -99,7 +99,7 @@ DESC
   #
 
   spec.source_files = 'MRFileBrowser/Sources/MRFileBrowser/**/*.{swift}'
-  spec.resources    = 'MRFileBrowser/Resources/**/*'
+  # spec.resources    = 'MRFileBrowser/Resources/**/*'
   spec.exclude_files    = "Classes/Exclude"
 
   # spec.public_header_files = "Classes/**/*.h"
