@@ -1,106 +1,135 @@
 import SwiftUI
 
-struct FileBrowserLayout: View {
+public struct FileBrowserLayout: View {
+    public let folderURL: URL
+    let onClose: () -> Void
 
+    @State private var items: [URL] = []
     @State private var showSearchBar = false
-    @State private var scrollOffset: CGFloat = 0
-    @State private var previousOffset: CGFloat = 0
+    @State private var searchText = ""
+    @State private var isGridView = true
+    @State private var columnsCount: Int = 2
 
-    var body: some View {
+    @Binding var titleName: String
+
+    public init(folderURL: URL, titleName: Binding<String>, onClose: @escaping () -> Void) {
+        self.folderURL = folderURL
+        _titleName = titleName
+        self.onClose = onClose
+    }
+
+    public var body: some View {
         VStack(spacing: 0) {
 
-            // 🔵 TOP BAR (tbar)
-            TopBar()
-                .frame(height: 56)
-                .background(Color.gray.opacity(0.1))
+            // MARK: - Top Bar
+            TopBar(
+                showSearchBar: $showSearchBar,
+                titleName: $titleName,
+                isGridView: $isGridView,
+                columnsCount: $columnsCount,
+                onClose: onClose
+            )
 
-            // 🔵 SEARCH BAR (sbar)
+            // MARK: - Search Bar
             if showSearchBar {
-                SearchBar()
-                    .frame(height: 50)
+                searchBar
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // 🔵 FILE LIST AREA (scrollable)
-            ScrollView {
-                GeometryReader { geo in
-                    Color.clear
-                        .preference(key: ScrollOffsetKey.self,
-                                    value: geo.frame(in: .named("scroll")).minY)
+            // MARK: - File List / Grid
+            Group {
+                // Only attempt grid code on iOS 14+. Otherwise fallback to list.
+                if isGridView,#available(iOS 14.0, *) {
+                        // Grid on iOS 14+
+                        ScrollView {
+                            fileGridView_iOS14Plus()
+                        }
+                        // attach gesture to scroll view so ScrollView doesn't swallow it
+                        .simultaneousGesture(gridMagnificationGesture())
+                } else {
+                    ScrollView { fileListView }
                 }
-                .frame(height: 0)
-
-                FileListPlaceholder() // temp content
             }
-            .coordinateSpace(name: "scroll")
-            .onPreferenceChange(ScrollOffsetKey.self) { newOffset in
-                handleScroll(offset: newOffset)
-            }
+            .animation(.default, value: isGridView)
 
-            // 🔵 BOTTOM BAR (bbar)
+            // MARK: - Bottom Bar
             BottomBar()
-                .frame(height: 60)
-                .background(Color.gray.opacity(0.1))
+        }
+        .onAppear(perform: loadItems)
+    }
+
+    // MARK: - SEARCH BAR
+    var searchBar: some View {
+        TextField("Search files...", text: $searchText)
+            .padding(10)
+            .background(Color(.secondarySystemBackground))
+            .padding(.horizontal, 8)
+    }
+
+    // MARK: - GRID (iOS 14+ only)
+    @ViewBuilder
+    private func fileGridView_iOS14Plus() -> some View {
+        if #available(iOS 14.0, *) {
+            // Calculate item width based on screen width and spacing
+            let screenWidth = UIScreen.main.bounds.width
+            let spacing: CGFloat = 10
+            let totalSpacing = spacing * CGFloat(columnsCount + 1)
+            let itemWidth = max(0, (screenWidth - totalSpacing) / CGFloat(columnsCount))
+
+            let columns = Array(repeating: GridItem(.fixed(itemWidth), spacing: spacing), count: columnsCount)
+
+            LazyVGrid(columns: columns, spacing: spacing) {
+                ForEach(filteredItems(), id: \.self) { url in
+                    FileRowGridView(url: url, width: itemWidth)
+                        .frame(width: itemWidth, height: itemWidth) // square cell
+                }
+            }
+            .padding(.horizontal, spacing)
+            .padding(.top, 10)
+        } else {
+            fileListView
         }
     }
 
-    // MARK: - Logic: Show search bar only after tbar is hit
-    func handleScroll(offset: CGFloat) {
-        // Detect scrolling direction
-        let scrollingDown = offset < previousOffset
-
-        if scrollingDown && offset < -56 {  // 56 = topbar height
-            withAnimation(.spring()) {
-                showSearchBar = true
-            }
-        } else if !scrollingDown && offset > -56 {
-            withAnimation(.spring()) {
-                showSearchBar = false
-            }
+    // MARK: - LIST VIEW
+    var fileListView: some View {
+        VStack(spacing: 0) {
+            fileListing
         }
-
-        previousOffset = offset
+        .padding(.top, 10)
     }
-}
 
-// MARK: - Dummy Views (will replace later)
-struct TopBar: View {
-    var body: some View {
-        Rectangle().fill(Color.blue.opacity(0.2))
-    }
-}
-
-struct SearchBar: View {
-    var body: some View {
-        Rectangle().fill(Color.green.opacity(0.2))
-    }
-}
-
-struct BottomBar: View {
-    var body: some View {
-        Rectangle().fill(Color.red.opacity(0.2))
-    }
-}
-
-struct FileListPlaceholder: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            ForEach(0..<50) { i in
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.15))
-                    .frame(height: 48)
-                    .overlay(Text("ITEM \(i)").foregroundColor(.gray))
-            }
+    // MARK: - FILE LISTING
+    var fileListing: some View {
+        ForEach(filteredItems(), id: \.self) { url in
+            FileRowNormalView(url: url)
         }
-        .padding()
+    }
+
+    // MARK: - Magnification Gesture (grid)
+    private func gridMagnificationGesture() -> some Gesture {
+        MagnificationGesture()
+            .onEnded { scale in
+                if scale > 1.05 {
+                    columnsCount = max(2, columnsCount - 1)
+                } else if scale < 0.95 {
+                    columnsCount = min(4, columnsCount + 1)
+                }
+            }
+    }
+
+    // MARK: - HELPERS
+    private func loadItems() {
+        let fm = FileManager.default
+        items = (try? fm.contentsOfDirectory(
+            at: folderURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+    }
+
+    private func filteredItems() -> [URL] {
+        if searchText.isEmpty { return items }
+        return items.filter { $0.lastPathComponent.localizedCaseInsensitiveContains(searchText) }
     }
 }
-
-// Track scroll offset
-struct ScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
