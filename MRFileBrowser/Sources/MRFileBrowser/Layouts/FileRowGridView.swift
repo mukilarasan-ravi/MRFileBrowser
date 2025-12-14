@@ -1,15 +1,9 @@
-//
-//  FileRowGridView.swift
-//  MRFileBrowser
-//
-//  Created by Mukilarasan Ravi on 30/11/25.
-//
-
 import SwiftUI
 
 struct FileRowGridView: View {
     let url: URL
     var width: CGFloat? = nil   // Cell size provided by parent grid
+    var onTap: ((URL) -> Void)? = nil
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -24,7 +18,7 @@ struct FileRowGridView: View {
                     let items = (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
 
                     if items.isEmpty {
-                        EmptyView() // no preview for empty folder
+                        EmptyView()
                     } else {
                         FolderGridPreview(url: url, size: (width ?? 100) * 0.70)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -47,7 +41,7 @@ struct FileRowGridView: View {
                     .padding(.horizontal, 6)
 
                 // -------------------------
-                // Extra Info (item count OR file details)
+                // Extra Info
                 // -------------------------
                 Text(finfoExtraDetails)
                     .foregroundColor(.gray)
@@ -60,12 +54,12 @@ struct FileRowGridView: View {
             .frame(width: width, height: width)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(red: 0.85, green: 0.92, blue: 1.0)) // Pale blue
+                    .fill(Color(red: 0.85, green: 0.92, blue: 1.0))
                     .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
             )
 
             // -------------------------
-            // diropertheedotmenu button
+            // diropertheedotmenu
             // -------------------------
             Button(action: {
                 print("diropertheedotmenu tapped for \(url.lastPathComponent)")
@@ -77,6 +71,10 @@ struct FileRowGridView: View {
             }
             .padding(6)
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap?(url)
+        }
     }
 
     // MARK: - Extra Info
@@ -84,15 +82,15 @@ struct FileRowGridView: View {
         if url.isDirectory {
             let fm = FileManager.default
             let count = (try? fm.contentsOfDirectory(atPath: url.path).count) ?? 0
-            return "\(count) item\(count == 1 ? "" : "s")"
+            return "\(count) item\(count <= 1 ? "" : "s")"
         } else {
             let typeName = url.pathExtension.mediaType
-
             let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-            let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
-
+            let sizeStr = ByteCountFormatter.string(
+                fromByteCount: Int64(size),
+                countStyle: .file
+            )
             return "\(typeName), \(sizeStr)"
         }
     }
-
 }
