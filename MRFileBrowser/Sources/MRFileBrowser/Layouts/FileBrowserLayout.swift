@@ -12,7 +12,7 @@ public struct FileBrowserLayout: View {
 
     // MARK: - Inputs
     public let folderURL: URL
-    let onClose: () -> Void
+    let isRoot: Bool
 
     @Binding var titleName: String
     @Binding var isGridView: Bool
@@ -26,19 +26,21 @@ public struct FileBrowserLayout: View {
     @State private var selectedFolder: URL? = nil
     @State private var previewItem: PreviewItem? = nil // For full-screen preview
 
+    @Environment(\.presentationMode) private var presentationMode
+
     // MARK: - Init
     public init(
         folderURL: URL,
         titleName: Binding<String>,
         isGridView: Binding<Bool>,
         columnsCount: Binding<Int>,
-        onClose: @escaping () -> Void
+        isRoot: Bool = true
     ) {
         self.folderURL = folderURL
+        self.isRoot = isRoot
         _titleName = titleName
         _isGridView = isGridView
         _columnsCount = columnsCount
-        self.onClose = onClose
     }
 
     // MARK: - Body
@@ -59,11 +61,12 @@ public struct FileBrowserLayout: View {
 
                 // Top Bar
                 TopBar(
+                    isRoot: isRoot,
                     showSearchBar: $showSearchBar,
                     titleName: $titleName,
                     isGridView: $isGridView,
                     columnsCount: $columnsCount,
-                    onClose: onClose
+                    onBack: goBack,
                 )
 
                 // Search Bar
@@ -74,7 +77,23 @@ public struct FileBrowserLayout: View {
 
                 // Content
                 Group {
-                    if isGridView, #available(iOS 14.0, *) {
+                    let currentItems = filteredItems()
+
+                    if items.isEmpty || currentItems.isEmpty {
+                        Spacer()
+                            Image(systemName: "folder") // SF Symbol for folder
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 50, height: 50) // Adjust size as needed
+                                .foregroundColor(Color.blue.opacity(0.7))
+
+                            Text("Folder is Empty")
+                                .foregroundColor(Color.blue.opacity(0.7))
+                                .font(.system(size: 20, weight: .regular))
+
+                            Spacer()
+
+                    } else if isGridView, #available(iOS 14.0, *) {
                         ScrollView {
                             fileGridView_iOS14Plus()
                         }
@@ -93,12 +112,17 @@ public struct FileBrowserLayout: View {
 
             // MARK: - Full-Screen QuickLook Preview
             if let previewItem = previewItem {
-                FullScreenQuickLookPreview(url: previewItem.url) {
-                    self.previewItem = nil // Close action
-                }
+                FullScreenQuickLookPreview(
+                    url: previewItem.url,
+                    onClose:{
+                        self.previewItem = nil
+                    }, title: previewItem.url.lastPathComponent
+                )
             }
+
         }
         .onAppear(perform: loadItems)
+        .navigationBarBackButtonHidden(true)
     }
 
     // MARK: - Destination View
@@ -110,9 +134,13 @@ public struct FileBrowserLayout: View {
                 titleName: .constant(folder.lastPathComponent),
                 isGridView: $isGridView,
                 columnsCount: $columnsCount,
-                onClose: onClose
+                isRoot: false
             )
         }
+    }
+
+    private func goBack() {
+        presentationMode.wrappedValue.dismiss()
     }
 
     // MARK: - Search Bar
@@ -205,52 +233,95 @@ public struct FileBrowserLayout: View {
 
 // MARK: - Full Screen QuickLook Preview
 struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
+
     let url: URL
     let onClose: () -> Void
+    let title: String
 
     func makeUIViewController(context: Context) -> UIViewController {
-        let controller = UIViewController()
-        controller.view.backgroundColor = .black
 
-        // Embed QLPreviewController
+        let container = UIViewController()
+        container.view.backgroundColor = .black
+
+        // -----------------------------
+        // QLPreviewController
+        // -----------------------------
         let preview = QLPreviewController()
         preview.dataSource = context.coordinator
-        preview.view.frame = controller.view.bounds
-        preview.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        controller.addChild(preview)
-        controller.view.addSubview(preview.view)
-        preview.didMove(toParent: controller)
+        preview.view.translatesAutoresizingMaskIntoConstraints = false
 
-        // Add close button
-        let button = UIButton(type: .system)
-        let image = UIImage(systemName: "xmark")?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 20, weight: .bold))
-        button.setImage(image, for: .normal)
-        button.tintColor = .white
-        button.backgroundColor = UIColor.black.withAlphaComponent(0.5)
-        button.layer.cornerRadius = 8
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.addTarget(context.coordinator, action: #selector(Coordinator.close), for: .touchUpInside)
-        controller.view.addSubview(button)
+        container.addChild(preview)
+        container.view.addSubview(preview.view)
+        preview.didMove(toParent: container)
+
+        // -----------------------------
+        // SwiftUI TopBar
+        // -----------------------------
+        let topBar = UIHostingController(
+            rootView: TopBar(
+                isRoot: true,
+                showSearchBar: .constant(false),
+                titleName: .constant(title),
+                isGridView: .constant(false),
+                columnsCount: .constant(2),
+                showsSearch: false,
+                showsGridToggle: false,
+                onBack: {
+                    context.coordinator.close()
+                }
+            )
+        )
+
+
+        topBar.view.backgroundColor = .clear
+        topBar.view.translatesAutoresizingMaskIntoConstraints = false
+
+        container.addChild(topBar)
+        container.view.addSubview(topBar.view)
+        topBar.didMove(toParent: container)
+
+        // -----------------------------
+        // Layout
+        // -----------------------------
         NSLayoutConstraint.activate([
-            button.topAnchor.constraint(equalTo: controller.view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            button.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor, constant: -20),
-            button.widthAnchor.constraint(equalToConstant: 80),
-            button.heightAnchor.constraint(equalToConstant: 40)
+
+            // TopBar
+            topBar.view.topAnchor.constraint(equalTo: container.view.safeAreaLayoutGuide.topAnchor),
+            topBar.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
+            topBar.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
+            topBar.view.heightAnchor.constraint(equalToConstant: 56),
+
+            // Preview below TopBar
+            preview.view.topAnchor.constraint(equalTo: topBar.view.bottomAnchor),
+            preview.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
+            preview.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
+            preview.view.bottomAnchor.constraint(equalTo: container.view.bottomAnchor)
         ])
 
-        return controller
+        return container
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(url: url, onClose: onClose) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url, onClose: onClose)
+    }
 
+    // MARK: - Coordinator
     class Coordinator: NSObject, QLPreviewControllerDataSource {
+
         let url: URL
         let onClose: () -> Void
-        init(url: URL, onClose: @escaping () -> Void) { self.url = url; self.onClose = onClose }
 
-        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        init(url: URL, onClose: @escaping () -> Void) {
+            self.url = url
+            self.onClose = onClose
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+            1
+        }
+
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
             url as NSURL
         }
