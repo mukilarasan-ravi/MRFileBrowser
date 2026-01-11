@@ -100,6 +100,7 @@ private extension FileRowView {
                     .minimumScaleFactor(0.5)
                     .font(.caption)
                     .padding(.horizontal, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(fileInfoDetails)
                     .foregroundColor(.gray)
@@ -107,6 +108,7 @@ private extension FileRowView {
                     .lineLimit(1)
                     .padding(.horizontal, 6)
                     .padding(.bottom, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(width: width, height: width)
             .background(
