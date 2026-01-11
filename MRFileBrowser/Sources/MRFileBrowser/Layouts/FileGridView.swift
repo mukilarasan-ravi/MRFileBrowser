@@ -12,6 +12,7 @@ struct FileGridView: View {
     let items: [URL]
     let columnsCount: Int
     let onItemTap: (URL) -> Void
+    private let menuCoordinator = MenuCoordinator()
 
     private var itemWidth: CGFloat {
         let screenWidth = UIScreen.main.bounds.width
@@ -29,9 +30,10 @@ struct FileGridView: View {
                             let index = row * columnsCount + column
 
                             if index < items.count {
-                                FileRowGridView(
+                                FileRowView(
                                     url: items[index],
-                                    width: itemWidth,
+                                    layout: .grid(width: itemWidth),
+                                    menuCoordinator: menuCoordinator,
                                     onTap: onItemTap
                                 )
                             } else {

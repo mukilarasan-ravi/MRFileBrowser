@@ -26,6 +26,8 @@ public struct FileBrowserLayout: View {
     @State private var selectedFolder: URL? = nil
     @State private var previewItem: PreviewItem? = nil // For full-screen preview
 
+    @ObservedObject private var menuCoordinator = MenuCoordinator()
+
     @Environment(\.presentationMode) private var presentationMode
 
     // MARK: - Init
@@ -120,6 +122,12 @@ public struct FileBrowserLayout: View {
                 )
             }
 
+            // MARK: - Bottom Sheet Menu
+            if menuCoordinator.isBottomSheetVisible {
+                bottomSheetOverlay
+                    .zIndex(100)
+            }
+
         }
         .onAppear(perform: loadItems)
         .navigationBarBackButtonHidden(true)
@@ -140,6 +148,8 @@ public struct FileBrowserLayout: View {
     }
 
     private func goBack() {
+//        debugPrint(folderURL.deletingLastPathComponent())
+//        selectedFolder = folderURL.deletingLastPathComponent();
         presentationMode.wrappedValue.dismiss()
     }
 
@@ -168,9 +178,10 @@ public struct FileBrowserLayout: View {
 
             LazyVGrid(columns: columns, spacing: spacing) {
                 ForEach(filteredItems(), id: \.self) { url in
-                    FileRowGridView(
+                    FileRowView(
                         url: url,
-                        width: itemWidth,
+                        layout: .grid(width: itemWidth),
+                        menuCoordinator: menuCoordinator,
                         onTap: handleItemTap
                     )
                     .frame(width: itemWidth, height: itemWidth)
@@ -187,9 +198,12 @@ public struct FileBrowserLayout: View {
     private var fileListView: some View {
         VStack(spacing: 0) {
             ForEach(filteredItems(), id: \.self) { url in
-                FileRowNormalView(url: url, onTap: handleItemTap)
-                    .contentShape(Rectangle())
-                    .onTapGesture { handleItemTap(url) }
+                FileRowView(
+                    url: url,
+                    layout: .list(thumbnailSize: 44),
+                    menuCoordinator: menuCoordinator,
+                    onTap: handleItemTap
+                )
             }
         }
         .padding(.top, 10)
@@ -228,6 +242,114 @@ public struct FileBrowserLayout: View {
         return items.filter {
             $0.lastPathComponent.localizedCaseInsensitiveContains(searchText)
         }
+    }
+
+    // MARK: - Bottom Sheet Overlay
+    private var bottomSheetOverlay: some View {
+        ZStack {
+            // Dim background
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    menuCoordinator.hideBottomSheet()
+                }
+
+            // Bottom sheet
+            VStack {
+                Spacer()
+
+                if let selectedFile = menuCoordinator.selectedFile {
+                    VStack(spacing: 0) {
+                        // File info header with cancel button
+                        HStack(spacing: 12) {
+                            // File icon and name on the left
+                            HStack(spacing: 12) {
+                                Image(systemName: selectedFile.isDirectory ? "folder.fill" : "doc.fill")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.blue)
+
+                                Text(selectedFile.lastPathComponent)
+                                    .font(.headline)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                            }
+                            Spacer()
+                            // Cancel button on the right
+                            Button {
+                                menuCoordinator.hideBottomSheet()
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 30, height: 30)
+                                    .background(Color(UIColor.tertiarySystemFill))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(.top, 24)
+                        .padding(.bottom, 20)
+                        .padding(.horizontal, 20)
+
+                        Divider()
+
+                        // Actions
+                        actionButton("Rename", icon: "pencil") {
+                            print("Rename \(selectedFile.lastPathComponent)")
+                        }
+
+                        actionButton("Move", icon: "folder") {
+                            print("Move \(selectedFile.lastPathComponent)")
+                        }
+
+                        actionButton("Zip", icon: "doc.zipper") {
+                            print("Zip \(selectedFile.lastPathComponent)")
+                        }
+
+                        actionButton("Lock", icon: "lock") {
+                            print("Lock \(selectedFile.lastPathComponent)")
+                        }
+
+                        if !selectedFile.isDirectory {
+                            actionButton("Share", icon: "square.and.arrow.up") {
+                                print("Share \(selectedFile.lastPathComponent)")
+                            }
+                        }
+
+                        actionButton("Move to Trash", icon: "trash", isDestructive: true) {
+                            print("Trash \(selectedFile.lastPathComponent)")
+                        }
+
+                        // Bottom spacing
+                        Spacer()
+                            .frame(height: 20)
+                    }
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16, corners: [.topLeft, .topRight])
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
+                }
+            }
+            .edgesIgnoringSafeArea(.bottom)
+        }
+    }
+
+    private func actionButton(_ title: String, icon: String, isDestructive: Bool = false, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            menuCoordinator.hideBottomSheet()
+        } label: {
+            HStack {
+                Image(systemName: icon)
+                    .frame(width: 24)
+                Text(title)
+                    .font(.system(size: 16))
+                Spacer()
+            }
+            .foregroundColor(isDestructive ? .red : .primary)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+        .buttonStyle(.plain)
     }
 }
 
