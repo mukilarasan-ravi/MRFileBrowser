@@ -11,20 +11,33 @@ struct BottomBar: View {
     var body: some View {
         HStack {
             Button(action: { }) {
-                Image(systemName: "folder.badge.plus")
-                Text("New Folder")
+                Image(systemName: "laptopcomputer")
+                    .aspectRatio(contentMode: .fit)
+                    .overlay(
+                        Image(systemName: "wifi")
+                            .scaleEffect(0.60)
+                            .offset(y: -0.15 )
+                    )
             }
             Spacer()
+
             Button(action: { }) {
                 Image(systemName: "trash")
-                Text("Delete")
             }
+
             Spacer()
+
             Button(action: { }) {
-                Image(systemName: "square.and.arrow.up")
-                Text("Share")
+                Image(systemName: "arrow.up.arrow.down")
+            }
+
+            Spacer()
+
+            Button(action: { }) {
+                Image(systemName: "folder.badge.plus")
             }
         }
+        .font(.system(size: 30))
         .padding(.horizontal)
         .foregroundColor(.blue)
     }

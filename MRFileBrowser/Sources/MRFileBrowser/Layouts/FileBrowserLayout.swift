@@ -1,5 +1,6 @@
 import SwiftUI
 import QuickLook
+import Foundation
 
 // MARK: - Identifiable Wrapper for URL
 struct PreviewItem: Identifiable {
@@ -107,9 +108,11 @@ public struct FileBrowserLayout: View {
                     }
                 }
                 .animation(.default, value: isGridView)
-
                 // Bottom Bar
-                BottomBar()
+                BottomBar().padding(.top, 8)
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.systemBackground))
             }
 
             // MARK: - Full-Screen QuickLook Preview
@@ -127,12 +130,83 @@ public struct FileBrowserLayout: View {
                 bottomSheetOverlay
                     .zIndex(100)
             }
+            //
+            if( menuCoordinator.shouldShowFileExtensionsAlert ){
+                let currentFileURL = menuCoordinator.selectedFile!
+                let parentURL = currentFileURL.deletingLastPathComponent()
+                    let fileExt = menuCoordinator.newFileName.fileExtension.lowercased()
 
+                    let title = "Are you sure you want to change the extension from \".\(currentFileURL.pathExtension)\" to \".\(fileExt)\"?"
+
+                    AlertPrompt(title: title, okButtonText: "Keep .\(currentFileURL.pathExtension)", cancelButtonText: "Use .\(fileExt)",name: $menuCoordinator.newFileName,isPresented: $menuCoordinator.shouldShowFileExtensionsAlert){
+                        let oldExtension = currentFileURL.pathExtension
+                        let baseName = (menuCoordinator.newFileName as! NSString).deletingPathExtension
+                        menuCoordinator.newFileName = "\(baseName).\(oldExtension)"
+                        print("new file name is \(menuCoordinator.newFileName)")
+                        doRename(oldName: currentFileURL.lastPathComponent, newName: menuCoordinator.newFileName, in: parentURL)
+                    } onCancel: {//We need to rename file name alone and keep the extension as it is
+                        doRename(oldName: currentFileURL.lastPathComponent, newName: menuCoordinator.newFileName, in: parentURL)
+                    }
+            }
+            if( menuCoordinator.shouldShowErrorMessage ){
+                AlertPrompt(title: menuCoordinator.showRenameErrorMessage, okButtonText: "Ok", disableCancelButton:true, name: $menuCoordinator.newFileName, isPresented: $menuCoordinator.shouldShowErrorMessage){
+                    menuCoordinator.resetVar()
+                } onCancel: {//FIXME: when disableCancelButton is true, there is no need to pass it, need to support the code accordingly
+                    menuCoordinator.resetVar()
+                }
+            }
+            if( menuCoordinator.showRenameView ){
+                AlertPrompt(title: "Enter the new name", placeHolder: "New File Name", okButtonText: "Rename", name: $menuCoordinator.newFileName, isPresented: $menuCoordinator.showRenameView){
+                    print("User entered:", $menuCoordinator.newFileName)
+
+                    let currentFileURL = menuCoordinator.selectedFile!
+                    let parentURL = currentFileURL.deletingLastPathComponent()
+                    if(currentFileURL.lastPathComponent == menuCoordinator.newFileName){//When there is no changes in file, both will be same
+                        return
+                    }
+                    var isDiff = false
+                    if(!currentFileURL.isDirectory){
+                        let fileExt = menuCoordinator.newFileName.fileExtension.lowercased()
+                        isDiff = fileExt != currentFileURL.pathExtension
+                        menuCoordinator.shouldShowFileExtensionsAlert = isDiff
+                    }
+                    if(!isDiff){//When there is no changes in file extension. for folder it is false by default
+                        doRename(oldName: currentFileURL.lastPathComponent, newName: menuCoordinator.newFileName, in: parentURL)
+                    }
+                } onCancel: {
+                    print("cancel :: User entered:", $menuCoordinator.selectedFile)
+                    menuCoordinator.resetVar()
+                }
+            }
         }
         .onAppear(perform: loadItems)
         .navigationBarBackButtonHidden(true)
     }
-
+    private func doRename(oldName: String, newName: String, in folderURL: URL){
+        do {
+            try FileUtils.rename(
+                oldName: oldName,
+                newName: newName,
+                in: folderURL
+            )
+            menuCoordinator.resetVar()
+            loadItems()
+        } catch FileUtils.FileError.sourceNotFound(let path) {
+            menuCoordinator.showRenameErrorMessage = "\(oldName) does not exist."
+            menuCoordinator.shouldShowErrorMessage = true
+            print("Source not found:", path)
+        } catch FileUtils.FileError.destinationAlreadyExists(let path) {
+            menuCoordinator.showRenameErrorMessage = "\(newName) already exist in the folder"
+            menuCoordinator.shouldShowErrorMessage = true
+            print("Destination exists:", path)
+        } catch FileUtils.FileError.failedToRename(let oldPath, let newPath, let underlyingError) {
+            menuCoordinator.showRenameErrorMessage = "Error while renaming \(oldName) to \(newName)"
+            menuCoordinator.shouldShowErrorMessage = true
+            print("Failed from \(oldPath) to \(newPath): \(underlyingError)")
+        } catch {
+            print("Unexpected error:", error)
+        }
+    }
     // MARK: - Destination View
     @ViewBuilder
     private func destinationView() -> some View {
@@ -295,28 +369,36 @@ public struct FileBrowserLayout: View {
 
                         // Actions
                         actionButton("Rename", icon: "pencil") {
+                            menuCoordinator.hideBottomSheet()
+                            menuCoordinator.showRenameView = true
+                            menuCoordinator.newFileName = selectedFile.lastPathComponent
                             print("Rename \(selectedFile.lastPathComponent)")
                         }
 
                         actionButton("Move", icon: "folder") {
+                            menuCoordinator.hideBottomSheet()
                             print("Move \(selectedFile.lastPathComponent)")
                         }
 
                         actionButton("Zip", icon: "doc.zipper") {
+                            menuCoordinator.hideBottomSheet()
                             print("Zip \(selectedFile.lastPathComponent)")
                         }
 
                         actionButton("Lock", icon: "lock") {
+                            menuCoordinator.hideBottomSheet()
                             print("Lock \(selectedFile.lastPathComponent)")
                         }
 
                         if !selectedFile.isDirectory {
                             actionButton("Share", icon: "square.and.arrow.up") {
+                                menuCoordinator.hideBottomSheet()
                                 print("Share \(selectedFile.lastPathComponent)")
                             }
                         }
 
                         actionButton("Move to Trash", icon: "trash", isDestructive: true) {
+                            menuCoordinator.hideBottomSheet()
                             print("Trash \(selectedFile.lastPathComponent)")
                         }
 
@@ -333,24 +415,6 @@ public struct FileBrowserLayout: View {
         }
     }
 
-    private func actionButton(_ title: String, icon: String, isDestructive: Bool = false, action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-            menuCoordinator.hideBottomSheet()
-        } label: {
-            HStack {
-                Image(systemName: icon)
-                    .frame(width: 24)
-                Text(title)
-                    .font(.system(size: 16))
-                Spacer()
-            }
-            .foregroundColor(isDestructive ? .red : .primary)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 // MARK: - Full Screen QuickLook Preview
