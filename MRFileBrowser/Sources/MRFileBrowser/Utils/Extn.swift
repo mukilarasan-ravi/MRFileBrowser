@@ -38,14 +38,18 @@ extension URL {
 extension String {
     var mediaType: String {
         switch self.lowercased() {
-        case "jpg", "jpeg", "png", "gif", "heic": return "Image"
-        case "mp4", "mov", "m4v": return "Video"
+        case "jpg", "jpeg", "png", "gif", "heic", "bmp", "tiff": return "Image"
+        case "mp4", "mov", "m4v", "avi", "mkv": return "Video"
+        case "mp3", "wav", "aac", "flac": return "Audio"
         case "pdf": return "PDF Document"
-        case "zip","7z", "tar.gz", "rar": return "Archive"
-        case "txt": return "Text File"
+        case "zip", "7z", "tar.gz", "rar", "tar": return "Archive"
+        case "txt", "rtf": return "Text Document"
         case "csv": return "CSV File"
         case "json": return "JSON File"
         case "html": return "HTML File"
+        case "doc", "docx": return "Word Document"
+        case "xls", "xlsx": return "Excel Spreadsheet"
+        case "ppt", "pptx": return "PowerPoint Presentation"
         default: return self.isEmpty ? "File" : self.uppercased() + " File"
         }
     }

@@ -28,6 +28,9 @@ final class MenuCoordinator: ObservableObject {
     @Published var expandedFolders: Set<URL> = []
     @Published var folderTree: [FolderNode] = []
 
+    @Published var showFileInfo: Bool = false
+    @Published var fileInfo: FileInfo? = nil
+
     func showBottomSheet(for file: URL) {
         selectedFile = file
         withAnimation(.easeOut) {
@@ -45,6 +48,7 @@ final class MenuCoordinator: ObservableObject {
             isBottomSheetVisible = false
             showMoveView = false
             showRenameView = false
+            showFileInfo = false
         }
 
         selectedFile = nil
@@ -60,6 +64,7 @@ final class MenuCoordinator: ObservableObject {
         navigationHistory = []
         expandedFolders = []
         folderTree = []
+        fileInfo = nil
     }
 
     func prepareMove(for file: URL, availableFolders: [URL]) {

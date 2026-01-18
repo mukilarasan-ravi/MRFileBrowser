@@ -204,7 +204,13 @@ public struct FileBrowserLayout: View {
             if menuCoordinator.showMoveView {
                 moveViewOverlay
                     .zIndex(200)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
+            }
+
+            if menuCoordinator.showFileInfo {
+                fileInfoViewOverlay
+                    .zIndex(300)
+                    .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
             }
         }
         .onAppear(perform: loadItems)
@@ -272,6 +278,19 @@ public struct FileBrowserLayout: View {
             menuCoordinator.showRenameErrorMessage = "Failed to move: \(error.localizedDescription)"
             menuCoordinator.shouldShowErrorMessage = true
             menuCoordinator.showMoveView = false // Close the move picker
+        }
+    }
+
+    //Get Info Functions
+    private func performGetInfo() {
+        guard let selectedFile = menuCoordinator.selectedFile else { return }
+
+        if let fileInfo = FileUtils.getFileInfo(for: selectedFile) {
+            menuCoordinator.fileInfo = fileInfo
+            menuCoordinator.showFileInfo = true
+        } else {
+            menuCoordinator.showRenameErrorMessage = "Unable to get file information"
+            menuCoordinator.shouldShowErrorMessage = true
         }
     }
     // MARK: - Destination View
@@ -408,7 +427,7 @@ public struct FileBrowserLayout: View {
                             HStack(spacing: 12) {
                                 Image(systemName: selectedFile.isDirectory ? "folder.fill" : "doc.fill")
                                     .font(.system(size: 32))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(Color.blue.opacity(0.7))
 
                                 Text(selectedFile.lastPathComponent)
                                     .font(.headline)
@@ -451,9 +470,9 @@ public struct FileBrowserLayout: View {
                             }
                         }
 
-                        actionButton("Zip", icon: "doc.zipper") {
+                        actionButton("Get Info", icon: "info.circle") {
                             menuCoordinator.hideBottomSheet()
-                            print("Zip \(selectedFile.lastPathComponent)")
+                            performGetInfo()
                         }
 
                         actionButton("Lock", icon: "lock") {
@@ -507,6 +526,144 @@ public struct FileBrowserLayout: View {
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
             }
             .edgesIgnoringSafeArea(.bottom)
+        }
+    }
+
+    // MARK: - File Info View Overlay
+    private var fileInfoViewOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    menuCoordinator.resetVar()
+                }
+
+            VStack {
+                Spacer()
+
+                if let fileInfo = menuCoordinator.fileInfo {
+                    VStack(spacing: 0) {
+                        // Header with close button
+                        HStack {
+                            Text("File Information")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+
+                            Spacer()
+
+                            Button {
+                                menuCoordinator.resetVar()
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 30, height: 30)
+                                    .background(Color(UIColor.tertiarySystemFill))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(.top, 24)
+                        .padding(.bottom, 20)
+                        .padding(.horizontal, 20)
+
+                        Divider()
+
+                        // File info content
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                // File name and icon
+                                HStack(spacing: 12) {
+                                    Image(systemName: fileInfo.isDirectory ? "folder.fill" : "doc.fill")
+                                        .font(.system(size: 40))
+                                        .foregroundColor(Color.blue.opacity(0.7))
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(fileInfo.name)
+                                            .font(.system(size: 40))
+                                            .fontWeight(.medium)
+
+                                        Text(fileInfo.fileType)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.top, 20)
+
+                                Divider()
+                                    .padding(.horizontal, 20)
+
+                                // File details
+                                VStack(alignment: .leading, spacing: 12) {
+                                    if !fileInfo.isDirectory {
+                                        fileInfoRow("Size", value: fileInfo.formattedSize)
+                                    } else {
+                                        // For directories, show item count
+                                        let itemCount = getDirectoryItemCount(for: fileInfo.path)
+                                        fileInfoRow("Items", value: "\(itemCount) items")
+                                    }
+
+                                    fileInfoRow("Created", value: fileInfo.formattedCreationDate)
+                                    fileInfoRow("Modified", value: fileInfo.formattedModificationDate)
+
+                                    // Path (scrollable for long paths)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Path")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            Text(fileInfo.path)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .fixedSize(horizontal: true, vertical: false)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 30)
+                            }
+                        }
+                        .frame(maxHeight: 400)
+                    }
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
+                }
+            }
+            .edgesIgnoringSafeArea(.bottom)
+        }
+    }
+
+    // Helper for file info rows
+    private func fileInfoRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .frame(width: 80, alignment: .leading)
+
+            Text(value)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Spacer()
+        }
+    }
+
+    // Helper to get directory item count
+    private func getDirectoryItemCount(for path: String) -> Int {
+        let fm = FileManager.default
+        let url = URL(fileURLWithPath: path)
+
+        do {
+            let items = try fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            return items.count
+        } catch {
+            return 0
         }
     }
 

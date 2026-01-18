@@ -126,4 +126,79 @@ class FileUtils {
     static func temporaryDirectory() -> URL {
         return fileManager.temporaryDirectory
     }
+
+    //Get detailed file information
+    static func getFileInfo(for url: URL) -> FileInfo? {
+        guard fileManager.fileExists(atPath: url.path) else {
+            return nil
+        }
+
+        do {
+            let attributes = try fileManager.attributesOfItem(atPath: url.path)
+            let resourceValues = try url.resourceValues(forKeys: [
+                .isDirectoryKey,
+                .fileSizeKey,
+                .creationDateKey,
+                .contentModificationDateKey,
+                .contentAccessDateKey,
+                .typeIdentifierKey
+            ])
+
+            return FileInfo(
+                name: url.lastPathComponent,
+                path: url.path,
+                isDirectory: resourceValues.isDirectory ?? false,
+                size: resourceValues.fileSize ?? 0,
+                creationDate: resourceValues.creationDate,
+                modificationDate: resourceValues.contentModificationDate,
+                lastAccessDate: resourceValues.contentAccessDate,
+                fileType: url.hasDirectoryPath ? "Folder" : url.pathExtension.mediaType
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    //Get file type description
+
+
+}
+
+//File information structure
+struct FileInfo {
+    let name: String
+    let path: String
+    let isDirectory: Bool
+    let size: Int
+    let creationDate: Date?
+    let modificationDate: Date?
+    let lastAccessDate: Date?
+    let fileType: String
+
+    var formattedSize: String {
+        if isDirectory {
+            return "--"
+        }
+
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB, .useTB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(size))
+    }
+
+    var formattedCreationDate: String {
+        guard let date = creationDate else { return "Unknown" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    var formattedModificationDate: String {
+        guard let date = modificationDate else { return "Unknown" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
 }
