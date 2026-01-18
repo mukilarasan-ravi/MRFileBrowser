@@ -1,6 +1,25 @@
 import SwiftUI
+import UIKit
 import QuickLook
 import Foundation
+
+private class MoveFolderPickerDelegate: FolderPickerDelegate {
+    private let onFolderSelected: (URL) -> Void
+    private let onCancel: () -> Void
+
+    init(onFolderSelected: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+        self.onFolderSelected = onFolderSelected
+        self.onCancel = onCancel
+    }
+
+    func folderPicker(_ picker: FolderPickerView, didSelectFolder url: URL) {
+        onFolderSelected(url)
+    }
+
+    func folderPickerDidCancel(_ picker: FolderPickerView) {
+        onCancel()
+    }
+}
 
 // MARK: - Identifiable Wrapper for URL
 struct PreviewItem: Identifiable {
@@ -14,6 +33,7 @@ public struct FileBrowserLayout: View {
     // MARK: - Inputs
     public let folderURL: URL
     let isRoot: Bool
+    private let initialRootURL: URL // Store the initial folder
 
     @Binding var titleName: String
     @Binding var isGridView: Bool
@@ -37,10 +57,12 @@ public struct FileBrowserLayout: View {
         titleName: Binding<String>,
         isGridView: Binding<Bool>,
         columnsCount: Binding<Int>,
-        isRoot: Bool = true
+        isRoot: Bool = true,
+        initialRootURL: URL? = nil
     ) {
         self.folderURL = folderURL
         self.isRoot = isRoot
+        self.initialRootURL = initialRootURL ?? folderURL // Use provided root or current folder as root
         _titleName = titleName
         _isGridView = isGridView
         _columnsCount = columnsCount
@@ -178,6 +200,12 @@ public struct FileBrowserLayout: View {
                     menuCoordinator.resetVar()
                 }
             }
+
+            if menuCoordinator.showMoveView {
+                moveViewOverlay
+                    .zIndex(200)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
         .onAppear(perform: loadItems)
         .navigationBarBackButtonHidden(true)
@@ -199,12 +227,51 @@ public struct FileBrowserLayout: View {
             menuCoordinator.showRenameErrorMessage = "\(newName) already exist in the folder"
             menuCoordinator.shouldShowErrorMessage = true
             print("Destination exists:", path)
-        } catch FileUtils.FileError.failedToRename(let oldPath, let newPath, let underlyingError) {
+        } catch FileUtils.FileError.failedToRename(let oldPath, let newPath, underlyingError: let underlyingError) {
             menuCoordinator.showRenameErrorMessage = "Error while renaming \(oldName) to \(newName)"
             menuCoordinator.shouldShowErrorMessage = true
-            print("Failed from \(oldPath) to \(newPath): \(underlyingError)")
+            print("Failed to rename:", oldPath, "to", newPath, underlyingError.localizedDescription)
         } catch {
             print("Unexpected error:", error)
+        }
+    }
+
+    //Move Functions
+    private func performMove() {
+        guard let sourceFile = menuCoordinator.currentMoveSourcePath,
+              let destinationFolder = menuCoordinator.selectedDestinationFolder else {
+            return
+        }
+
+        //Ignoring move operaion when source and destination folders are same
+        let sourceParent = sourceFile.deletingLastPathComponent()
+        if sourceParent == destinationFolder {
+            menuCoordinator.showRenameErrorMessage = "Item is already in this folder"
+            menuCoordinator.shouldShowErrorMessage = true
+            menuCoordinator.showMoveView = false // Close the move picker
+            return
+        }
+
+        do {
+            try FileUtils.move(
+                fileName: sourceFile.lastPathComponent,
+                from: sourceParent,
+                to: destinationFolder
+            )
+            menuCoordinator.resetVar()
+            loadItems() // Refresh the current view
+        } catch FileUtils.FileError.sourceNotFound(_) {
+            menuCoordinator.showRenameErrorMessage = "Source file does not exist"
+            menuCoordinator.shouldShowErrorMessage = true
+            menuCoordinator.showMoveView = false // Close the move picker
+        } catch FileUtils.FileError.destinationAlreadyExists(_) {
+            menuCoordinator.showRenameErrorMessage = "A file with this name already exists in the destination folder"
+            menuCoordinator.shouldShowErrorMessage = true
+            menuCoordinator.showMoveView = false // Close the move picker
+        } catch {
+            menuCoordinator.showRenameErrorMessage = "Failed to move: \(error.localizedDescription)"
+            menuCoordinator.shouldShowErrorMessage = true
+            menuCoordinator.showMoveView = false // Close the move picker
         }
     }
     // MARK: - Destination View
@@ -216,7 +283,8 @@ public struct FileBrowserLayout: View {
                 titleName: .constant(folder.lastPathComponent),
                 isGridView: $isGridView,
                 columnsCount: $columnsCount,
-                isRoot: false
+                isRoot: false,
+                initialRootURL: initialRootURL
             )
         }
     }
@@ -377,7 +445,10 @@ public struct FileBrowserLayout: View {
 
                         actionButton("Move", icon: "folder") {
                             menuCoordinator.hideBottomSheet()
-                            print("Move \(selectedFile.lastPathComponent)")
+                            if let selectedFile = menuCoordinator.selectedFile {
+                                menuCoordinator.currentMoveSourcePath = selectedFile
+                                menuCoordinator.showMoveView = true
+                            }
                         }
 
                         actionButton("Zip", icon: "doc.zipper") {
@@ -407,9 +478,33 @@ public struct FileBrowserLayout: View {
                             .frame(height: 20)
                     }
                     .background(Color(UIColor.systemBackground))
-                    .cornerRadius(16, corners: [.topLeft, .topRight])
+                    .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
                 }
+            }
+            .edgesIgnoringSafeArea(.bottom)
+        }
+    }
+
+    //Move View Overlay
+    private var moveViewOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    menuCoordinator.resetVar()
+                }
+
+            VStack {
+                Spacer()
+
+                MovePickerWrapper(
+                    initialRootURL: initialRootURL,
+                    menuCoordinator: menuCoordinator,
+                    onMove: performMove
+                )
+                .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
             }
             .edgesIgnoringSafeArea(.bottom)
         }
@@ -514,6 +609,40 @@ struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
 
         @objc func close() {
             onClose()
+        }
+    }
+}
+
+//Move Picker Wrapper to handle delegate
+private struct MovePickerWrapper: View {
+    let initialRootURL: URL
+    @ObservedObject var menuCoordinator: MenuCoordinator
+    let onMove: () -> Void
+
+    @State private var delegate: MoveFolderPickerDelegate?
+
+    var body: some View {
+        FolderPickerView(
+            configuration: FolderPickerConfiguration(
+                title: "Move to Folder",
+                allowedRootPath: initialRootURL,
+                showCancelButton: true,
+                confirmButtonTitle: "Move"
+            ),
+            delegate: delegate
+        )
+        .onAppear {
+            if delegate == nil {
+                delegate = MoveFolderPickerDelegate(
+                    onFolderSelected: { url in
+                        menuCoordinator.selectedDestinationFolder = url
+                        onMove()
+                    },
+                    onCancel: {
+                        menuCoordinator.resetVar()
+                    }
+                )
+            }
         }
     }
 }

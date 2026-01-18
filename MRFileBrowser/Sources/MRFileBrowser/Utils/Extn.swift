@@ -183,3 +183,25 @@ struct AlertPrompt: View {
     }
 
 }
+
+public struct FolderNode {
+    public let id = UUID()
+    public let url: URL
+    public let level: Int
+    public let hasSubfolders: Bool
+    public let subfolders: [URL]
+
+    public init(url: URL, level: Int, hasSubfolders: Bool, subfolders: [URL]) {
+        self.url = url
+        self.level = level
+        self.hasSubfolders = hasSubfolders
+        self.subfolders = subfolders
+    }
+}
+
+extension Array where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
+}
