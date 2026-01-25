@@ -9,6 +9,7 @@ import SwiftUI
 
 struct BottomBar: View {
     let onTrashTapped: () -> Void
+    let onNewFolderTapped: () -> Void
     var body: some View {
         HStack {
             Button(action: { }) {
@@ -34,7 +35,7 @@ struct BottomBar: View {
 
             Spacer()
 
-            Button(action: { }) {
+            Button(action: onNewFolderTapped) {
                 Image(systemName: "folder.badge.plus")
             }
         }

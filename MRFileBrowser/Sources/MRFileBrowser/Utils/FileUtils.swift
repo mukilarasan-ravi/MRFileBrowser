@@ -35,6 +35,23 @@ class FileUtils {
         return fileManager.createFile(atPath: fileURL.path, contents: contents, attributes: nil)
     }
 
+    //Create a Folder
+    static func createFolder(named folderName: String, in parentURL: URL) throws {
+        let folderURL = parentURL.appendingPathComponent(folderName)
+
+        // Check if folder already exists
+        if fileManager.fileExists(atPath: folderURL.path) {
+            throw FileError.destinationAlreadyExists(folderURL.path)
+        }
+
+        do {
+            try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: false, attributes: nil)
+            print("Folder '\(folderName)' created in '\(parentURL.path)'")
+        } catch {
+            throw FileError.failedToRename("", folderName, underlyingError: error)
+        }
+    }
+
     //Write to File
     static func write(to fileName: String, in folderURL: URL, content: String) throws {
         let fileURL = folderURL.appendingPathComponent(fileName)

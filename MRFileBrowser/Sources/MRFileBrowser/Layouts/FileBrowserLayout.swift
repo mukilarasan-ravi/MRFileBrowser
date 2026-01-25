@@ -147,7 +147,10 @@ public struct FileBrowserLayout: View {
                 }
                 .animation(.default, value: isGridView)
                 // Bottom Bar
-                BottomBar(onTrashTapped: navigateToTrashFolder)
+                BottomBar(
+                    onTrashTapped: navigateToTrashFolder,
+                    onNewFolderTapped: showNewFolderDialog
+                )
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity)
@@ -214,6 +217,14 @@ public struct FileBrowserLayout: View {
                     }
                 } onCancel: {
                     print("cancel :: User entered:", $menuCoordinator.selectedFile)
+                    menuCoordinator.resetVar()
+                }
+            }
+
+            if menuCoordinator.showNewFolderView {
+                AlertPrompt(title: "Create New Folder", placeHolder: "Folder Name", okButtonText: "Create", name: $menuCoordinator.newFolderName, isPresented: $menuCoordinator.showNewFolderView) {
+                    performCreateFolder()
+                } onCancel: {
                     menuCoordinator.resetVar()
                 }
             }
@@ -531,6 +542,24 @@ public struct FileBrowserLayout: View {
     private func navigateToTrashFolder() {
         let trashFolder = FileUtils.getTrashFolder()
         selectedFolder = trashFolder
+    }
+
+    private func showNewFolderDialog() {
+        menuCoordinator.showNewFolderView = true
+    }
+
+    private func performCreateFolder() {
+        do {
+            try FileUtils.createFolder(named: menuCoordinator.newFolderName, in: folderURL)
+            menuCoordinator.resetVar()
+            loadItems() // Refresh to show the new folder
+        } catch FileUtils.FileError.destinationAlreadyExists(_) {
+            menuCoordinator.showRenameErrorMessage = "A folder named '\(menuCoordinator.newFolderName)' already exists"
+            menuCoordinator.shouldShowErrorMessage = true
+        } catch {
+            menuCoordinator.showRenameErrorMessage = "Failed to create folder: \(error.localizedDescription)"
+            menuCoordinator.shouldShowErrorMessage = true
+        }
     }
 
     // MARK: - Grid Zoom Gesture

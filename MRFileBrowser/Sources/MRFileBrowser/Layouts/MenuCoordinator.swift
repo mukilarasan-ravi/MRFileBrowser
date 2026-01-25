@@ -39,6 +39,11 @@ final class MenuCoordinator: ObservableObject {
     @Published var showUnlock: Bool = false
     @Published var pendingLockFile: URL? = nil
     @Published var isPermanentUnlock: Bool = false // Add this property
+
+    // New Folder Properties
+    @Published var showNewFolderView: Bool = false
+    @Published var newFolderName: String = ""
+
     // Undo toast state
     @Published var showUndoToast: Bool = false
     @Published var undoMessage: String = ""
@@ -69,6 +74,7 @@ final class MenuCoordinator: ObservableObject {
             showLockSetup = false
             showUnlock = false
             showRestoreLocationPicker = false
+            showNewFolderView = false
         }
 
         selectedFile = nil
@@ -77,6 +83,7 @@ final class MenuCoordinator: ObservableObject {
         shouldShowErrorMessage = false
         showRenameErrorMessage = ""
         newFileName = ""
+        newFolderName = ""
 
         selectedDestinationFolder = nil
         availableFolders = []
