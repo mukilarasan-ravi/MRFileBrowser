@@ -21,25 +21,40 @@ private class MoveFolderPickerDelegate: FolderPickerDelegate {
     }
 }
 
-// MARK: - Identifiable Wrapper for URL
+private class RestoreFolderPickerDelegate: FolderPickerDelegate {
+    private let onFolderSelected: (URL) -> Void
+    private let onCancel: () -> Void
+
+    init(onFolderSelected: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
+        self.onFolderSelected = onFolderSelected
+        self.onCancel = onCancel
+    }
+
+    func folderPicker(_ picker: FolderPickerView, didSelectFolder url: URL) {
+        onFolderSelected(url)
+    }
+
+    func folderPickerDidCancel(_ picker: FolderPickerView) {
+        onCancel()
+    }
+}
+
 struct PreviewItem: Identifiable {
     let id = UUID()
     let url: URL
 }
 
-// MARK: - Main File Browser
+//File Browser Main UI
 public struct FileBrowserLayout: View {
 
-    // MARK: - Inputs
     public let folderURL: URL
     let isRoot: Bool
-    private let initialRootURL: URL // Store the initial folder
+    private let initialRootURL: URL //Store the initial folder
 
     @Binding var titleName: String
     @Binding var isGridView: Bool
     @Binding var columnsCount: Int
 
-    // MARK: - State
     @State private var items: [URL] = []
     @State private var showSearchBar = false
     @State private var searchText = ""
@@ -91,11 +106,12 @@ public struct FileBrowserLayout: View {
                     titleName: $titleName,
                     isGridView: $isGridView,
                     columnsCount: $columnsCount,
-                    onBack: goBack,
+                    showsSearch: !folderURL.isTrashFolder, // disable search in trash folder
+                    onBack: goBack
                 )
 
-                // Search Bar
-                if showSearchBar {
+                // Search Bar (disabled in trash folder)
+                if showSearchBar && !folderURL.isTrashFolder {
                     searchBar
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
@@ -131,7 +147,8 @@ public struct FileBrowserLayout: View {
                 }
                 .animation(.default, value: isGridView)
                 // Bottom Bar
-                BottomBar().padding(.top, 8)
+                BottomBar(onTrashTapped: navigateToTrashFolder)
+                    .padding(.top, 8)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity)
                     .background(Color(.systemBackground))
@@ -143,7 +160,7 @@ public struct FileBrowserLayout: View {
                     url: previewItem.url,
                     onClose:{
                         self.previewItem = nil
-                    }, title: previewItem.url.lastPathComponent
+                    }, title: previewItem.url.displayName
                 )
             }
 
@@ -212,6 +229,36 @@ public struct FileBrowserLayout: View {
                     .zIndex(300)
                     .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
             }
+
+            if menuCoordinator.showLockSetup {
+                lockSetupOverlay
+                    .zIndex(400)
+                    .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
+            }
+
+            if menuCoordinator.showUnlock {
+                unlockOverlay
+                    .zIndex(500)
+                    .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
+            }
+
+            if menuCoordinator.showRestoreLocationPicker {
+                restoreLocationPickerOverlay
+                    .zIndex(600)
+                    .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
+            }
+
+            // When a file/folder moved to trash, show undo toast for a while
+            if menuCoordinator.showUndoToast {
+                VStack {
+                    Spacer()
+                    undoToastView
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100) // Position above bottom bar
+                }
+                .zIndex(700)
+                .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
+            }
         }
         .onAppear(perform: loadItems)
         .navigationBarBackButtonHidden(true)
@@ -223,6 +270,7 @@ public struct FileBrowserLayout: View {
                 newName: newName,
                 in: folderURL
             )
+
             menuCoordinator.resetVar()
             loadItems()
         } catch FileUtils.FileError.sourceNotFound(let path) {
@@ -264,6 +312,7 @@ public struct FileBrowserLayout: View {
                 from: sourceParent,
                 to: destinationFolder
             )
+
             menuCoordinator.resetVar()
             loadItems() // Refresh the current view
         } catch FileUtils.FileError.sourceNotFound(_) {
@@ -293,13 +342,93 @@ public struct FileBrowserLayout: View {
             menuCoordinator.shouldShowErrorMessage = true
         }
     }
+
+    //Trash Functions
+    private func performMoveToTrash() {
+        guard let selectedFile = menuCoordinator.selectedFile else { return }
+
+        do {
+            let originalFileURL = selectedFile
+            let fileName = selectedFile.lastPathComponent
+
+            // Move to trash and get the actual trash location
+            let trashedFileURL = try FileUtils.moveToTrash(fileURL: selectedFile, in: folderURL)
+
+            // Show undo toast BEFORE resetting variables
+            menuCoordinator.showUndoToast(for: trashedFileURL, originalFile: originalFileURL, fileName: fileName)
+
+            menuCoordinator.resetVar(ignoreUndo: true) // We need to keep undo state to show the toast
+            loadItems() // Refresh the current view to remove the deleted item
+
+        } catch FileUtils.FileError.sourceNotFound(_) {
+            menuCoordinator.showRenameErrorMessage = "File does not exist"
+            menuCoordinator.shouldShowErrorMessage = true
+        } catch {
+            menuCoordinator.showRenameErrorMessage = "Failed to move to trash: \(error.localizedDescription)"
+            menuCoordinator.shouldShowErrorMessage = true
+        }
+    }
+
+    private func performRestoreFromTrash() {
+        guard let selectedFile = menuCoordinator.selectedFile else { return }
+        //It will prompt the file picker to select the destination folder
+        menuCoordinator.showRestoreLocationPicker(for: selectedFile, initialRootURL: initialRootURL)
+    }
+
+    private func performUndo() {
+        guard let undoInfo = menuCoordinator.performUndo() else {
+            return
+        }
+        do {
+            // Restore the file from trash to its original location
+            let originalDirectory = undoInfo.originalURL.deletingLastPathComponent()
+            try FileUtils.restoreFromTrash(fileURL: undoInfo.trashedURL, to: originalDirectory)
+
+            loadItems() // Refresh the view to show the restored item
+        } catch {
+            menuCoordinator.showRenameErrorMessage = "Failed to undo: \(error.localizedDescription)"
+            menuCoordinator.shouldShowErrorMessage = true
+        }
+    }
+
+    private func performRestoreToLocation() {
+        guard let sourceFile = menuCoordinator.restoreSourceFile,
+              let destinationFolder = menuCoordinator.selectedRestoreDestination else {
+            return
+        }
+
+        do {
+            try FileUtils.restoreFromTrash(fileURL: sourceFile, to: destinationFolder)
+
+            menuCoordinator.resetVar()
+            loadItems() // Refresh the current view to remove the restored item
+        } catch {
+            menuCoordinator.showRenameErrorMessage = "Failed to restore to selected location: \(error.localizedDescription)"
+            menuCoordinator.shouldShowErrorMessage = true
+            menuCoordinator.showRestoreLocationPicker = false
+        }
+    }
+
+    private func performPermanentDelete() {
+        guard let selectedFile = menuCoordinator.selectedFile else { return }
+
+        do {
+            try FileManager.default.removeItem(at: selectedFile)
+
+            menuCoordinator.resetVar()
+            loadItems() // Refresh the current view to remove the deleted item
+        } catch {
+            menuCoordinator.showRenameErrorMessage = "Failed to permanently delete: \(error.localizedDescription)"
+            menuCoordinator.shouldShowErrorMessage = true
+        }
+    }
     // MARK: - Destination View
     @ViewBuilder
     private func destinationView() -> some View {
         if let folder = selectedFolder {
             FileBrowserLayout(
                 folderURL: folder,
-                titleName: .constant(folder.lastPathComponent),
+                titleName: .constant(folder.displayName),
                 isGridView: $isGridView,
                 columnsCount: $columnsCount,
                 isRoot: false,
@@ -370,13 +499,38 @@ public struct FileBrowserLayout: View {
         .padding(.top, 10)
     }
 
-    // MARK: - Navigation Handler
+    //Navigation Handler
     private func handleItemTap(_ url: URL) {
+        LockAuthenticator.performTapWithLockCheck(
+            for: url,
+            menuCoordinator: menuCoordinator
+        ) {
+            self.proceedWithItemTap(url)
+        }
+    }
+
+    //Lock Check Helper for Menu Actions
+    private func performActionWithLockCheck(_ action: @escaping () -> Void) {
+        guard let selectedFile = menuCoordinator.selectedFile else { return }
+
+        LockAuthenticator.performMenuActionWithLockCheck(
+            for: selectedFile,
+            menuCoordinator: menuCoordinator,
+            action: action
+        )
+    }
+
+    private func proceedWithItemTap(_ url: URL) {
         if url.isDirectory {
             selectedFolder = url
         } else {
             previewItem = PreviewItem(url: url) // trigger full-screen preview
         }
+    }
+
+    private func navigateToTrashFolder() {
+        let trashFolder = FileUtils.getTrashFolder()
+        selectedFolder = trashFolder
     }
 
     // MARK: - Grid Zoom Gesture
@@ -429,7 +583,7 @@ public struct FileBrowserLayout: View {
                                     .font(.system(size: 32))
                                     .foregroundColor(Color.blue.opacity(0.7))
 
-                                Text(selectedFile.lastPathComponent)
+                                Text(selectedFile.displayName)
                                     .font(.headline)
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
@@ -454,42 +608,82 @@ public struct FileBrowserLayout: View {
 
                         Divider()
 
-                        // Actions
-                        actionButton("Rename", icon: "pencil") {
-                            menuCoordinator.hideBottomSheet()
-                            menuCoordinator.showRenameView = true
-                            menuCoordinator.newFileName = selectedFile.lastPathComponent
-                            print("Rename \(selectedFile.lastPathComponent)")
-                        }
-
-                        actionButton("Move", icon: "folder") {
-                            menuCoordinator.hideBottomSheet()
-                            if let selectedFile = menuCoordinator.selectedFile {
-                                menuCoordinator.currentMoveSourcePath = selectedFile
-                                menuCoordinator.showMoveView = true
-                            }
-                        }
-
-                        actionButton("Get Info", icon: "info.circle") {
-                            menuCoordinator.hideBottomSheet()
-                            performGetInfo()
-                        }
-
-                        actionButton("Lock", icon: "lock") {
-                            menuCoordinator.hideBottomSheet()
-                            print("Lock \(selectedFile.lastPathComponent)")
-                        }
-
-                        if !selectedFile.isDirectory {
-                            actionButton("Share", icon: "square.and.arrow.up") {
+                        // For trash folder, show only Restore and Delete Permanently options
+                        if folderURL.isTrashFolder {
+                            actionButton("Restore", icon: "arrow.uturn.backward") {
                                 menuCoordinator.hideBottomSheet()
-                                print("Share \(selectedFile.lastPathComponent)")
+                                performRestoreFromTrash()
                             }
-                        }
+                            actionButton("Delete Permanently", icon: "trash.fill", isDestructive: true) {
+                                menuCoordinator.hideBottomSheet()
+                                performPermanentDelete()
+                            }
+                        } else {
+                            // Regular folder actions
+                            actionButton("Rename", icon: "pencil") {
+                                menuCoordinator.hideBottomSheet()
+                                performActionWithLockCheck {
+                                    menuCoordinator.showRenameView = true
+                                    menuCoordinator.newFileName = selectedFile.lastPathComponent
+                                }
+                            }
 
-                        actionButton("Move to Trash", icon: "trash", isDestructive: true) {
-                            menuCoordinator.hideBottomSheet()
-                            print("Trash \(selectedFile.lastPathComponent)")
+                            actionButton("Move", icon: "folder") {
+                                menuCoordinator.hideBottomSheet()
+                                performActionWithLockCheck {
+                                    if let selectedFile = menuCoordinator.selectedFile {
+                                        menuCoordinator.currentMoveSourcePath = selectedFile
+                                        menuCoordinator.showMoveView = true
+                                    }
+                                }
+                            }
+
+                            actionButton("Get Info", icon: "info.circle") {
+                                menuCoordinator.hideBottomSheet()
+                                performActionWithLockCheck {
+                                    performGetInfo()
+                                }
+                            }
+
+                            // Lock/Unlock actions
+                            if LockManager.shared.isFileLocked(selectedFile.path) {
+                                actionButton("Unlock", icon: "lock.open") {
+                                    menuCoordinator.hideBottomSheet()
+                                    // For permanent unlock, we bypass lock check and directly handle unlock logic
+                                    if !LockManager.shared.hasCustomPIN(selectedFile.path) {
+                                        LockManager.shared.authenticateWithBiometrics { success in
+                                            if success {
+                                                LockManager.shared.permanentlyRemoveLock(from: selectedFile.path)
+                                                loadItems()
+                                            } else {
+                                                menuCoordinator.showUnlockView(for: selectedFile, isPermanent: true)
+                                            }
+                                        }
+                                    } else {
+                                        menuCoordinator.showUnlockView(for: selectedFile, isPermanent: true)
+                                    }
+                                }
+                            } else {
+                                actionButton("Lock", icon: "lock") {
+                                    menuCoordinator.showLockSetupView(for: selectedFile)
+                                }
+                            }
+
+                            if !selectedFile.isDirectory {
+                                actionButton("Share", icon: "square.and.arrow.up") {
+                                    menuCoordinator.hideBottomSheet()
+                                    performActionWithLockCheck {
+                                        print("Share \(selectedFile.lastPathComponent)")
+                                    }
+                                }
+                            }
+
+                            actionButton("Move to Trash", icon: "trash", isDestructive: true) {
+                                menuCoordinator.hideBottomSheet()
+                                performActionWithLockCheck{
+                                    self.performMoveToTrash()
+                                }
+                            }
                         }
 
                         // Bottom spacing
@@ -503,6 +697,28 @@ public struct FileBrowserLayout: View {
             }
             .edgesIgnoringSafeArea(.bottom)
         }
+    }
+
+    @ViewBuilder
+    private func actionButton(_ title: String, icon: String, isDestructive: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(isDestructive ? .red : .primary)
+                    .frame(width: 24, height: 24)
+
+                Text(title)
+                    .font(.body)
+                    .foregroundColor(isDestructive ? .red : .primary)
+
+                Spacer()
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     //Move View Overlay
@@ -616,7 +832,7 @@ public struct FileBrowserLayout: View {
                                             .fontWeight(.medium)
 
                                         ScrollView(.horizontal, showsIndicators: false) {
-                                            Text(fileInfo.path)
+                                            Text(getRelativePath(for: fileInfo.path))
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
                                                 .fixedSize(horizontal: true, vertical: false)
@@ -667,6 +883,164 @@ public struct FileBrowserLayout: View {
         }
     }
 
+    // Helper to get relative path from root( initialRootURL path )
+    private func getRelativePath(for absolutePath: String) -> String {
+        let rootPath = initialRootURL.path
+        let filePath = absolutePath
+
+        // If the file path starts with root path, return the relative portion
+        if filePath.hasPrefix(rootPath) {
+            let relativePath = String(filePath.dropFirst(rootPath.count))
+            // Remove leading slash if present and return, or return root indicator if empty
+            let cleanPath = relativePath.hasPrefix("/") ? String(relativePath.dropFirst()) : relativePath
+            return cleanPath.isEmpty ? "/" : "/\(cleanPath)"
+        }
+
+        // Fallback to absolute path if not under root
+        return absolutePath
+    }
+
+    private var lockSetupOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    menuCoordinator.hideLockViews()
+                }
+
+            if let file = menuCoordinator.pendingLockFile {
+                LockSetupView(
+                    filePath: file.path,
+                    fileName: file.lastPathComponent,
+                    isPresented: $menuCoordinator.showLockSetup
+                ) {
+                    menuCoordinator.hideLockViews()
+                }
+            }
+        }
+    }
+  
+    private var unlockOverlay: some View {
+        ZStack {
+            // Semi-transparent background
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    menuCoordinator.hideLockViews()
+                }
+
+            if let file = menuCoordinator.pendingLockFile {
+                let screenWidth = UIScreen.main.bounds.width
+                let screenHeight = UIScreen.main.bounds.height
+
+                // Centered popup container
+                VStack {
+                    Spacer()
+
+                    UnlockView(
+                        filePath: file.path,
+                        fileName: file.lastPathComponent,
+                        isPresented: $menuCoordinator.showUnlock,
+                        onUnlock: {
+                            // Check if there's a pending action before clearing state
+                            let hadPendingAction = menuCoordinator.hasPendingAction
+                            let isPermanent = menuCoordinator.isPermanentUnlock
+
+                            // Execute any pending action first (from menu actions)
+                            menuCoordinator.executePendingAction()
+                            menuCoordinator.hideLockViews()
+
+                            // Refresh items if it was a permanent unlock to update lock icons
+                            if isPermanent {
+                                loadItems()
+                            }
+
+                            // If no pending action and not a permanent unlock, proceed with file navigation
+                            if !hadPendingAction && !isPermanent {
+                                proceedWithItemTap(file)
+                            }
+                        },
+                        isPermanentUnlock: menuCoordinator.isPermanentUnlock
+                    )
+                    .frame(maxWidth: screenWidth * 0.75, maxHeight: screenHeight * 0.7)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(20)
+                    .shadow(radius: 20)
+                    .transition(.scale.combined(with: .opacity))
+
+                    Spacer()
+                }
+                .padding(20)
+            }
+        }
+    }
+
+    //Restore Location Picker
+    private var restoreLocationPickerOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    menuCoordinator.resetVar()
+                }
+
+            VStack {
+                Spacer()
+
+                RestoreLocationPickerWrapper(
+                    initialRootURL: initialRootURL,
+                    menuCoordinator: menuCoordinator,
+                    onRestore: performRestoreToLocation
+                )
+                .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
+            }
+            .edgesIgnoringSafeArea(.bottom)
+        }
+    }
+
+    //Undo Toast View
+    private var undoToastView: some View {
+        HStack {
+            // Success icon
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.white)
+                .font(.system(size: 20))
+
+            // Message
+            Text(menuCoordinator.undoMessage)
+                .foregroundColor(.white)
+                .font(.system(size: 16, weight: .medium))
+                .lineLimit(1)
+
+            Spacer()
+
+            // Undo button
+            Button("UNDO") {
+                performUndo()
+            }
+            .foregroundColor(.white)
+            .font(.system(size: 16, weight: .bold))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.2))
+            .cornerRadius(8)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.blue.opacity(0.7))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
+        .gesture(
+            DragGesture()
+                .onEnded { gesture in
+                    // If swipe down (positive height translation > 50)
+                    if gesture.translation.height > 50 {
+                        menuCoordinator.hideUndoToast()
+                    }
+                }
+        )
+    }
 }
 
 // MARK: - Full Screen QuickLook Preview
@@ -784,7 +1158,8 @@ private struct MovePickerWrapper: View {
                 title: "Move to Folder",
                 allowedRootPath: initialRootURL,
                 showCancelButton: true,
-                confirmButtonTitle: "Move"
+                confirmButtonTitle: "Move",
+                lockExpandable: true
             ),
             delegate: delegate
         )
@@ -794,6 +1169,41 @@ private struct MovePickerWrapper: View {
                     onFolderSelected: { url in
                         menuCoordinator.selectedDestinationFolder = url
                         onMove()
+                    },
+                    onCancel: {
+                        menuCoordinator.resetVar()
+                    }
+                )
+            }
+        }
+    }
+}
+
+//Restore Location Picker Wrapper to handle delegate
+private struct RestoreLocationPickerWrapper: View {
+    let initialRootURL: URL
+    @ObservedObject var menuCoordinator: MenuCoordinator
+    let onRestore: () -> Void
+
+    @State private var delegate: RestoreFolderPickerDelegate?
+
+    var body: some View {
+        FolderPickerView(
+            configuration: FolderPickerConfiguration(
+                title: "Choose Restore Location",
+                allowedRootPath: initialRootURL,
+                showCancelButton: true,
+                confirmButtonTitle: "Restore",
+                lockExpandable: true
+            ),
+            delegate: delegate
+        )
+        .onAppear {
+            if delegate == nil {
+                delegate = RestoreFolderPickerDelegate(
+                    onFolderSelected: { url in
+                        menuCoordinator.selectedRestoreDestination = url
+                        onRestore()
                     },
                     onCancel: {
                         menuCoordinator.resetVar()

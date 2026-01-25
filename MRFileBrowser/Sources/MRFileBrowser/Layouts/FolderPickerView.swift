@@ -7,23 +7,58 @@ public protocol FolderPickerDelegate: AnyObject {
     func folderPickerDidCancel(_ picker: FolderPickerView)
 }
 
+//Folder Picker Lock Display Mode
+public enum LockDisplayMode {
+    case dontShow
+    case showAsNormal
+    case showAsLocked
+}
+
+//Folder Picker Lock Selectability Mode
+public enum LockSelectabilityMode {
+    case selectable
+    case nonSelectable
+}
+
+//Folder Picker Item Type
+public enum ItemType {
+    case folderOnly
+    case folderAndFile
+}
+
 //Folder Picker Configuration
 public struct FolderPickerConfiguration {
     public let title: String
     public let allowedRootPath: URL
     public let showCancelButton: Bool
     public let confirmButtonTitle: String
+    public let lockDisplayMode: LockDisplayMode
+    public let lockSelectabilityMode: LockSelectabilityMode
+    public let lockExpandable: Bool
+    public let itemType: ItemType
+    public let defaultSelectedPath: URL?
 
     public init(
         title: String = "Choose Folder",
         allowedRootPath: URL,
         showCancelButton: Bool = true,
-        confirmButtonTitle: String = "Select"
+        confirmButtonTitle: String = "Select",
+        lockDisplayMode: LockDisplayMode = .showAsLocked,
+        lockSelectabilityMode: LockSelectabilityMode = .selectable,
+        lockExpandable: Bool = false,
+        itemType: ItemType = .folderOnly,
+        defaultSelectedPath: URL? = nil
     ) {
         self.title = title
         self.allowedRootPath = allowedRootPath
         self.showCancelButton = showCancelButton
         self.confirmButtonTitle = confirmButtonTitle
+        self.lockDisplayMode = lockDisplayMode
+        self.lockSelectabilityMode = lockSelectabilityMode
+        // Force lockExpandable to false when lockSelectabilityMode is nonSelectable
+        self.lockExpandable = lockSelectabilityMode == .nonSelectable ? false : lockExpandable
+        self.itemType = itemType
+        self.defaultSelectedPath = defaultSelectedPath
     }
 }
 
@@ -123,6 +158,7 @@ public struct FolderPickerView: View {
         )
         .onAppear {
             loadFolderTree()
+            setDefaultSelection()
         }
     }
 
@@ -145,13 +181,46 @@ public struct FolderPickerView: View {
             )
 
             let subfolders = contents.filter { $0.isDirectory }
+                .filter { subfolder in
+                    // Filter out locked folders if display mode is dontShow
+                    if configuration.lockDisplayMode == .dontShow {
+                        return !LockManager.shared.isFileLocked(subfolder.path)
+                    }
+                    return true
+                }
                 .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+
+            // Include files if itemType allows it
+            var allItems = subfolders
+            if configuration.itemType == .folderAndFile {
+                let files = contents.filter { !$0.isDirectory }
+                    .filter { file in
+                        // Filter out locked files if display mode is dontShow
+                        if configuration.lockDisplayMode == .dontShow {
+                            return !LockManager.shared.isFileLocked(file.path)
+                        }
+                        return true
+                    }
+                    .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+                allItems.append(contentsOf: files)
+                allItems.sort { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+            }
+
+            // Determine if expand button should be shown based on itemType
+            let hasExpandableItems: Bool
+            if configuration.itemType == .folderAndFile {
+                // Show expand button if there are any items (folders or files)
+                hasExpandableItems = !allItems.isEmpty
+            } else {
+                // Show expand button only if there are subfolders
+                hasExpandableItems = !subfolders.isEmpty
+            }
 
             return FolderNode(
                 url: url,
                 level: level,
-                hasSubfolders: !subfolders.isEmpty,
-                subfolders: subfolders
+                hasSubfolders: hasExpandableItems,
+                subfolders: allItems
             )
         } catch {
             return FolderNode(url: url, level: level, hasSubfolders: false, subfolders: [])
@@ -165,6 +234,91 @@ public struct FolderPickerView: View {
             expandedFolders.insert(url)
         }
     }
+    private func setDefaultSelection() {
+        guard let defaultPath = configuration.defaultSelectedPath else { return }
+        // Find the best matching path
+        let bestMatch = findBestMatchingPath(for: defaultPath)
+        if let matchingPath = bestMatch {
+            selectedFolder = matchingPath
+            // Expand folders along the path to make selection visible
+            expandPathToFolder(matchingPath)
+        }
+    }
+    private func findBestMatchingPath(for targetPath: URL) -> URL? {
+        // First try to find exact match using simple file existence check
+        if FileManager.default.fileExists(atPath: targetPath.path) &&
+           targetPath.path.hasPrefix(configuration.allowedRootPath.path) {
+            var isDirectory: ObjCBool = false
+            FileManager.default.fileExists(atPath: targetPath.path, isDirectory: &isDirectory)
+            // If itemType is folderOnly and target is a file, select parent folder instead
+            if configuration.itemType == .folderOnly && !isDirectory.boolValue {
+                return targetPath.deletingLastPathComponent()
+            }
+            return targetPath
+        }
+        // If exact match not found, find the longest matching parent path
+        return findLongestMatchingParent(for: targetPath)
+    }
+    private func findNodeByPath(_ targetPath: URL, in nodes: [FolderNode]) -> FolderNode? {
+        for node in nodes {
+            if node.url.path == targetPath.path {
+                return node
+            }
+            // Recursively search in subfolders - need to convert URLs to FolderNodes
+            for subfolderURL in node.subfolders {
+                if let subfolderNode = createChildNode(for: subfolderURL, level: node.level + 1) {
+                    if let found = findNodeByPath(targetPath, in: [subfolderNode]) {
+                        return found
+                    }
+                }
+            }
+        }
+        return nil
+    }
+    private func findLongestMatchingParent(for targetPath: URL) -> URL? {
+        var currentPath = targetPath
+        let rootPath = configuration.allowedRootPath
+        // Walk backward from the target path until we find an existing folder
+        while currentPath.path != rootPath.path && currentPath.path != "/" {
+            // Try the parent directory
+            currentPath = currentPath.deletingLastPathComponent()
+            // Check if this parent path exists and is within our allowed root
+            if FileManager.default.fileExists(atPath: currentPath.path) &&
+               currentPath.path.hasPrefix(rootPath.path) {
+                return currentPath
+            }
+        }
+        // If nothing found, return the root path as fallback
+        return rootPath
+    }
+    private func getAllPaths(from nodes: [FolderNode]) -> [URL] {
+        var paths: [URL] = []
+        for node in nodes {
+            paths.append(node.url)
+            // Add subfolder URLs directly since they're already URLs
+            paths.append(contentsOf: node.subfolders)
+        }
+        return paths
+    }
+    private func expandPathToFolder(_ targetPath: URL) {
+        // First, always expand the root folder if it contains subfolders
+        expandedFolders.insert(configuration.allowedRootPath)
+        var currentPath = configuration.allowedRootPath
+        let targetComponents = targetPath.pathComponents
+        let rootComponents = currentPath.pathComponents
+        // Skip root components and iterate through the remaining path
+        let pathToExpand = Array(targetComponents.dropFirst(rootComponents.count))
+        for component in pathToExpand {
+            currentPath = currentPath.appendingPathComponent(component)
+            // Expand this folder if it exists and is not the final target
+            if currentPath.path != targetPath.path && FileManager.default.fileExists(atPath: currentPath.path) {
+                expandedFolders.insert(currentPath)
+            }
+        }
+    }
+    private func folderExists(_ path: URL) -> Bool {
+        return findNodeByPath(path, in: folderTree) != nil
+    }
 
     //Folder Tree Row
     private func folderTreeRow(_ node: FolderNode) -> some View {
@@ -172,10 +326,34 @@ public struct FolderPickerView: View {
         let isExpanded = expandedFolders.contains(node.url)
 
         return VStack(alignment: .leading, spacing: 0) {
-            // Main folder button
+            // Main item button (folder or file)
             Button {
-                selectedFolder = node.url
+                let isLocked = LockManager.shared.isFileLocked(node.url.path)
+                // Check if item can be selected based on lock selectability mode
+                switch configuration.lockSelectabilityMode {
+                case .selectable:
+                    selectedFolder = node.url
+                case .nonSelectable:
+                    if !isLocked {
+                        selectedFolder = node.url
+                    }
+                }
             } label: {
+                let isLocked = LockManager.shared.isFileLocked(node.url.path)
+                // Determine lock icon display based on display mode
+                let shouldShowLockIcon = switch configuration.lockDisplayMode {
+                case .dontShow, .showAsNormal:
+                    false
+                case .showAsLocked:
+                    isLocked
+                }
+                // Determine opacity based on selectability mode
+                let (folderOpacity, textOpacity) = switch configuration.lockSelectabilityMode {
+                case .selectable:
+                    (1.0, 1.0)
+                case .nonSelectable:
+                    (isLocked ? 0.5 : 1.0, isLocked ? 0.5 : 1.0)
+                }
                 HStack {
                     // Indent for level with max constraint to prevent overflow
                     if node.level > 0 {
@@ -184,37 +362,60 @@ public struct FolderPickerView: View {
                             .frame(width: maxIndent)
                     }
 
-                    // Dropdown arrow for folders with subfolders
-                    if node.hasSubfolders {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                toggleFolder(node.url)
+                    // Chevron area - always reserve space for consistent alignment
+                    if node.url.isDirectory && node.hasSubfolders {
+                        let canExpand = !isLocked || configuration.lockExpandable
+                        if canExpand {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    toggleFolder(node.url)
+                                }
+                            } label: {
+                                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color.blue.opacity(0.7))
+                                    .frame(width: 12, height: 12)
+                                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
                             }
-                        } label: {
-                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .buttonStyle(.plain)
+                            .frame(width: 16, height: 16)
+                        } else {
+                            // Show disabled chevron for non-expandable locked folders
+                            Image(systemName: "chevron.right")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.blue.opacity(0.7))
+                                .foregroundColor(Color.gray.opacity(0.5))
                                 .frame(width: 12, height: 12)
-                                .animation(.easeInOut(duration: 0.2), value: isExpanded)
+                                .frame(width: 16, height: 16)
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        .frame(width: 16, height: 16)
                     } else {
-                        // Empty space to align with folders that have arrows
-                        Spacer()
+                        // Empty chevron space for files and folders without subfolders
+                        Rectangle()
+                            .fill(Color.clear)
                             .frame(width: 16, height: 16)
                     }
 
-                    // Folder icon
-                    Image(systemName: "folder.fill")
-                        .foregroundColor(Color.blue.opacity(0.7))
+                    // Item icon (folder or file)
+                    if node.url.isDirectory {
+                        Image(systemName: "folder.fill")
+                            .foregroundColor(Color.blue.opacity(0.7 * folderOpacity))
+                    } else {
+                        Image(systemName: "doc.fill")
+                            .foregroundColor(Color.gray.opacity(0.7 * folderOpacity))
+                    }
 
-                    // Folder name
-                    Text(node.url.lastPathComponent)
+                    // Item name (folder or file)
+                    Text(node.url.displayName)
                         .lineLimit(1)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.primary.opacity(textOpacity))
 
                     Spacer()
+
+                    // Lock indicator for locked items
+                    if shouldShowLockIcon {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.red)
+                    }
 
                     // Selection indicator
                     if isSelected {
@@ -227,7 +428,7 @@ public struct FolderPickerView: View {
                 .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
                 .cornerRadius(8)
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.plain)
 
             // Expanded subfolders with smooth animation
             if isExpanded && node.hasSubfolders {

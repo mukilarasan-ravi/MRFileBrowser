@@ -14,6 +14,17 @@ extension URL {
     var isDirectory: Bool {
         (try? resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
     }
+    /// Checks if this URL represents a trash folder
+    var isTrashFolder: Bool {
+        return FileUtils.isTrashFolder(self)
+    }
+    var displayName: String {
+        // Only show "Trash" for the actual trash folder itself, not items inside it
+        if self.lastPathComponent == ".MRFileBrowser_Trash" && FileUtils.isTrashFolder(self) {
+            return "Trash"
+        }
+        return self.lastPathComponent
+    }
     var fileType: String {
         let ext = self.pathExtension
 
@@ -56,6 +67,41 @@ extension String {
 
     var fileExtension: String {
         return (self as NSString).pathExtension
+    }
+    // MARK: - File Type Icon Helpers
+    var fileTypeIcon: String {
+        let ext = self.lowercased()
+        switch ext {
+        // Images
+        case "jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp", "heic", "heif":
+            return "photo.on.rectangle"
+        // Videos
+        case "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "m4v":
+            return "play.rectangle"
+        // Audio
+        case "mp3", "wav", "aac", "flac", "ogg", "wma", "m4a":
+            return "waveform"
+        // Documents
+        case "pdf":
+            return "doc.richtext"
+        case "doc", "docx":
+            return "doc.text"
+        case "xls", "xlsx", "csv", "numbers":
+            return "tablecells"
+        case "ppt", "pptx":
+            return "rectangle.on.rectangle"
+        case "txt", "rtf":
+            return "doc.plaintext"
+        // Code files
+        case "swift", "js", "py", "java", "cpp", "c", "h", "html", "css", "php", "rb", "go", "rs":
+            return "curlybraces"
+        // Archives
+        case "zip", "rar", "7z", "tar", "gz":
+            return "archivebox"
+        // Default
+        default:
+            return "doc"
+        }
     }
 
 }

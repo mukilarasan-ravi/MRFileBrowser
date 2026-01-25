@@ -30,6 +30,23 @@ final class MenuCoordinator: ObservableObject {
 
     @Published var showFileInfo: Bool = false
     @Published var fileInfo: FileInfo? = nil
+    // Restore-related state
+    @Published var showRestoreLocationPicker: Bool = false
+    @Published var restoreSourceFile: URL? = nil
+    @Published var selectedRestoreDestination: URL? = nil
+    // Lock-related state
+    @Published var showLockSetup: Bool = false
+    @Published var showUnlock: Bool = false
+    @Published var pendingLockFile: URL? = nil
+    @Published var isPermanentUnlock: Bool = false // Add this property
+    // Undo toast state
+    @Published var showUndoToast: Bool = false
+    @Published var undoMessage: String = ""
+    @Published var trashedFileURL: URL? = nil
+    @Published var originalFileURL: URL? = nil
+    private var undoTimer: Timer? = nil
+    // Pending action to execute after unlock
+    private var pendingAction: (() -> Void)? = nil
 
     func showBottomSheet(for file: URL) {
         selectedFile = file
@@ -43,15 +60,19 @@ final class MenuCoordinator: ObservableObject {
             isBottomSheetVisible = false
         }
     }
-    func resetVar(){
+    func resetVar(ignoreUndo: Bool = false){
         withAnimation(.easeOut) {
             isBottomSheetVisible = false
             showMoveView = false
             showRenameView = false
             showFileInfo = false
+            showLockSetup = false
+            showUnlock = false
+            showRestoreLocationPicker = false
         }
 
         selectedFile = nil
+        pendingLockFile = nil
         shouldShowFileExtensionsAlert = false
         shouldShowErrorMessage = false
         showRenameErrorMessage = ""
@@ -65,6 +86,13 @@ final class MenuCoordinator: ObservableObject {
         expandedFolders = []
         folderTree = []
         fileInfo = nil
+        // Reset restore state
+        restoreSourceFile = nil
+        selectedRestoreDestination = nil
+        // Reset undo state only if not ignored
+        if !ignoreUndo {
+            hideUndoToast()
+        }
     }
 
     func prepareMove(for file: URL, availableFolders: [URL]) {
@@ -126,5 +154,84 @@ final class MenuCoordinator: ObservableObject {
             expandedFolders.insert(folder)
         }
         buildFolderTree() // Rebuild tree to reflect changes
+    }
+    // Lock functionality methods
+    func showLockSetupView(for file: URL) {
+        pendingLockFile = file
+        hideBottomSheet()
+        showLockSetup = true
+    }
+    func showUnlockView(for file: URL, pendingAction: (() -> Void)? = nil, isPermanent: Bool = false) {
+        pendingLockFile = file
+        self.pendingAction = pendingAction
+        self.isPermanentUnlock = isPermanent
+        hideBottomSheet()
+        showUnlock = true
+    }
+    func hideLockViews() {
+        showLockSetup = false
+        showUnlock = false
+        pendingLockFile = nil
+        pendingAction = nil
+        isPermanentUnlock = false
+    }
+    func executePendingAction() {
+        if let action = pendingAction {
+            action()
+            pendingAction = nil
+        }
+    }
+    var hasPendingAction: Bool {
+        return pendingAction != nil
+    }
+    //Restore Methods
+    func showRestoreLocationPicker(for file: URL, initialRootURL: URL) {
+        restoreSourceFile = file
+        selectedRestoreDestination = nil
+        // Set initial navigation to root folder
+        currentNavigationPath = initialRootURL
+        navigationHistory = []
+        expandedFolders = [initialRootURL]
+        // Build folder tree starting from root
+        buildFolderTree()
+        showRestoreLocationPicker = true
+    }
+    //Undo Methods
+    func showUndoToast(for trashedFile: URL, originalFile: URL, fileName: String) {
+        trashedFileURL = trashedFile
+        originalFileURL = originalFile
+        undoMessage = "Moved '\(fileName)' to trash"
+        withAnimation(.easeInOut) {
+            showUndoToast = true
+        }
+        // Auto-hide toast after 5 seconds
+        undoTimer?.invalidate()
+        undoTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            DispatchQueue.main.async {
+                self.hideUndoToast()
+            }
+        }
+    }
+    func hideUndoToast() {
+        undoTimer?.invalidate()
+        undoTimer = nil
+        withAnimation(.easeInOut) {
+            showUndoToast = false
+        }
+        // Clear undo data after animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.trashedFileURL = nil
+            self.originalFileURL = nil
+            self.undoMessage = ""
+        }
+    }
+    func performUndo() -> (trashedURL: URL, originalURL: URL)? {
+        guard let trashedURL = trashedFileURL,
+              let originalURL = originalFileURL else {
+            return nil
+        }
+        let result = (trashedURL: trashedURL, originalURL: originalURL)
+        hideUndoToast()
+        return result
     }
 }

@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct BottomBar: View {
+    let onTrashTapped: () -> Void
     var body: some View {
         HStack {
             Button(action: { }) {
@@ -21,7 +22,7 @@ struct BottomBar: View {
             }
             Spacer()
 
-            Button(action: { }) {
+            Button(action: onTrashTapped) {
                 Image(systemName: "trash")
             }
 

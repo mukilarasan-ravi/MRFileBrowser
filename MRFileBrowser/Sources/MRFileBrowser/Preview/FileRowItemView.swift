@@ -6,24 +6,55 @@ struct FileRowItemView: View {
 
     @State private var thumbnail: UIImage? = nil
     @State private var isLoading = false
+    @ObservedObject private var lockManager = LockManager.shared
 
     var body: some View {
         ZStack {
-            if let image = thumbnail {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)  // enforce square
-                    .clipped()
-            } else {
+            // Check if file/folder is locked and show lock overlay
+            if lockManager.isFileLocked(url.path) {
+                // Show lock overlay instead of thumbnail/preview
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(red: 0.9, green: 0.95, blue: 1.0))
-                    .frame(width: size, height: size) // enforce square
+                    .frame(width: size, height: size)
                     .overlay(
-                        Image(systemName: url.hasDirectoryPath ? "folder.fill" : "doc.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.gray)
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
                     )
+                    .overlay(
+                        ZStack {
+                            Image(systemName: url.isDirectory ? "folder.fill" : url.pathExtension.fileTypeIcon)
+                                .font(.system(size: size * 0.5))
+                                .foregroundColor(Color.blue.opacity(0.7))
+                            // Show shield icon for both files and folders when locked
+                            Image(systemName: "lock.shield.fill")
+                                .font(.system(size: size * 0.25))
+                                .foregroundColor(.white)
+                                .background(
+                                    Circle()
+                                        .fill(Color.blue.opacity(0.7))
+                                        .frame(width: size * 0.3, height: size * 0.3)
+                                )
+                                .offset(x: size * 0.25, y: -size * 0.25)
+                        }
+                    )
+            } else {
+                // Show normal thumbnail/preview for unlocked items
+                if let image = thumbnail {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)  // enforce square
+                        .clipped()
+                } else {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(red: 0.9, green: 0.95, blue: 1.0))
+                        .frame(width: size, height: size) // enforce square
+                        .overlay(
+                            Image(systemName: url.hasDirectoryPath ? "folder.fill" : url.pathExtension.fileTypeIcon)
+                                .font(.system(size: 24))
+                                .foregroundColor(Color.blue.opacity(0.7))
+                        )
+                }
             }
         }
         .onAppear {
@@ -32,6 +63,8 @@ struct FileRowItemView: View {
     }
 
     private func loadThumbnailIfNeeded() {
+        // Don't load thumbnails for locked files
+        if lockManager.isFileLocked(url.path) { return }
         if thumbnail != nil || isLoading { return }
         isLoading = true
 
