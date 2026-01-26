@@ -255,3 +255,47 @@ extension Array where Element: Hashable {
         return filter { seen.insert($0).inserted }
     }
 }
+
+//UI Related Functions
+struct UIHelpers {
+    static func actionButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: systemImage)
+                    .foregroundColor(.blue)
+                Text(label)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+        }
+    }
+
+    static func sortActionButton(for option: SortOption, menuCoordinator: MenuCoordinator, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: option.icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(.primary)
+                    .frame(width: 24, height: 24)
+
+                Text(option.displayName)
+                    .font(.body)
+                    .foregroundColor(.primary)
+
+                Spacer()
+                if menuCoordinator.sortBy == option {
+                    Text(menuCoordinator.sortOrder == .ascending ? "↑" : "↓")
+                        .foregroundColor(.blue.opacity(0.7))
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}

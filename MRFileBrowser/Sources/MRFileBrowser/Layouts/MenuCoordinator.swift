@@ -8,6 +8,44 @@
 import SwiftUI
 import Combine
 
+enum SortOption: CaseIterable {
+    case name, dateModified, size
+    
+    var displayName: String {
+        switch self {
+        case .name: return "Name"
+        case .dateModified: return "Date"
+        case .size: return "Size"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .name: return "character"
+        case .dateModified: return "clock"
+        case .size: return "doc.badge.ellipsis"
+        }
+    }
+}
+
+enum SortOrder {
+    case ascending, descending
+    
+    var displayName: String {
+        switch self {
+        case .ascending: return "Ascending"
+        case .descending: return "Descending"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .ascending: return "arrow.up"
+        case .descending: return "arrow.down"
+        }
+    }
+}
+
 final class MenuCoordinator: ObservableObject {
 
     @Published var isBottomSheetVisible: Bool = false
@@ -44,6 +82,11 @@ final class MenuCoordinator: ObservableObject {
     @Published var showNewFolderView: Bool = false
     @Published var newFolderName: String = ""
 
+    // Sort Properties
+    @Published var showSortView: Bool = false
+    @Published var sortBy: SortOption = .name
+    @Published var sortOrder: SortOrder = .ascending
+
     // Undo toast state
     @Published var showUndoToast: Bool = false
     @Published var undoMessage: String = ""
@@ -55,6 +98,7 @@ final class MenuCoordinator: ObservableObject {
 
     func showBottomSheet(for file: URL) {
         selectedFile = file
+        showSortView = false // Ensure sort view is hidden when showing file operations
         withAnimation(.easeOut) {
             isBottomSheetVisible = true
         }
@@ -75,6 +119,7 @@ final class MenuCoordinator: ObservableObject {
             showUnlock = false
             showRestoreLocationPicker = false
             showNewFolderView = false
+            showSortView = false
         }
 
         selectedFile = nil

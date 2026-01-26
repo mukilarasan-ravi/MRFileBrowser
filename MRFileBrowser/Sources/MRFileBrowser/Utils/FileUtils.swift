@@ -383,6 +383,24 @@ class FileUtils {
         }
     }
 
+    //File Metadata Utilities
+
+    //Gets the modification date for a file or directory
+    static func getModificationDate(for url: URL) -> Date {
+        return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
+    }
+
+    //Gets the file size for a file or directory
+    static func getFileSize(for url: URL) -> Int64 {
+        if url.isDirectory {
+            // For directories, try to get the actual size, fallback to 0
+            return (try? url.resourceValues(forKeys: [.totalFileSizeKey]))?.totalFileSize.map(Int64.init) ?? 0
+        } else {
+            // For files, get the file size
+            return (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map(Int64.init) ?? 0
+        }
+    }
+
 }
 
 //File information structure

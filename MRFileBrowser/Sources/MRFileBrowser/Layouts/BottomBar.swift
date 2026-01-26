@@ -10,6 +10,7 @@ import SwiftUI
 struct BottomBar: View {
     let onTrashTapped: () -> Void
     let onNewFolderTapped: () -> Void
+    let onSortTapped: () -> Void
     var body: some View {
         HStack {
             Button(action: { }) {
@@ -29,7 +30,7 @@ struct BottomBar: View {
 
             Spacer()
 
-            Button(action: { }) {
+            Button(action: onSortTapped) {
                 Image(systemName: "arrow.up.arrow.down")
             }
 

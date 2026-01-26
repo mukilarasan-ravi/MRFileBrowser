@@ -58,6 +58,7 @@ public struct FileBrowserLayout: View {
     @State private var items: [URL] = []
     @State private var showSearchBar = false
     @State private var searchText = ""
+    @State private var refreshKey = UUID() // For forcing view updates when sorting changes
 
     @State private var selectedFolder: URL? = nil
     @State private var previewItem: PreviewItem? = nil // For full-screen preview
@@ -146,10 +147,13 @@ public struct FileBrowserLayout: View {
                     }
                 }
                 .animation(.default, value: isGridView)
+                // Force view updates when sort options change
+                .id(refreshKey)
                 // Bottom Bar
                 BottomBar(
                     onTrashTapped: navigateToTrashFolder,
-                    onNewFolderTapped: showNewFolderDialog
+                    onNewFolderTapped: showNewFolderDialog,
+                    onSortTapped: showSortDialog
                 )
                     .padding(.top, 8)
                     .padding(.bottom, 16)
@@ -488,6 +492,7 @@ public struct FileBrowserLayout: View {
                     .frame(width: itemWidth, height: itemWidth)
                 }
             }
+            .id("grid-\(menuCoordinator.sortBy)-\(menuCoordinator.sortOrder)")
             .padding(.horizontal, spacing)
             .padding(.top, 10)
         } else {
@@ -507,6 +512,7 @@ public struct FileBrowserLayout: View {
                 )
             }
         }
+        .id("list-\(menuCoordinator.sortBy)-\(menuCoordinator.sortOrder)")
         .padding(.top, 10)
     }
 
@@ -548,6 +554,20 @@ public struct FileBrowserLayout: View {
         menuCoordinator.showNewFolderView = true
     }
 
+    private func showSortDialog() {
+        menuCoordinator.selectedFile = nil // Ensure file operations are hidden when showing sort
+        menuCoordinator.showSortView = true
+        menuCoordinator.isBottomSheetVisible = true
+    }
+    private func updateSortOption(_ option: SortOption) {
+        if menuCoordinator.sortBy == option {
+            menuCoordinator.sortOrder = menuCoordinator.sortOrder == .ascending ? .descending : .ascending
+        } else {
+            menuCoordinator.sortBy = option
+        }
+        refreshKey = UUID()
+    }
+
     private func performCreateFolder() {
         do {
             try FileUtils.createFolder(named: menuCoordinator.newFolderName, in: folderURL)
@@ -582,12 +602,32 @@ public struct FileBrowserLayout: View {
     }
 
     private func filteredItems() -> [URL] {
-        if searchText.isEmpty { return items }
-        return items.filter {
+        let filtered = searchText.isEmpty ? items : items.filter {
             $0.lastPathComponent.localizedCaseInsensitiveContains(searchText)
         }
+        return sortItems(filtered)
     }
-
+    private func sortItems(_ items: [URL]) -> [URL] {
+        return items.sorted { (url1, url2) in
+            // Always put directories first
+            let isDir1 = url1.isDirectory
+            let isDir2 = url2.isDirectory
+            if isDir1 != isDir2 {
+                return isDir1
+            }
+            // Sort by the selected criteria
+            let result: Bool
+            switch menuCoordinator.sortBy {
+            case .name:
+                result = url1.lastPathComponent.localizedCaseInsensitiveCompare(url2.lastPathComponent) == .orderedAscending
+            case .dateModified:
+                result = FileUtils.getModificationDate(for: url1) < FileUtils.getModificationDate(for: url2)
+            case .size:
+                result = FileUtils.getFileSize(for: url1) < FileUtils.getFileSize(for: url2)
+            }
+            return menuCoordinator.sortOrder == .ascending ? result : !result
+        }
+    }
     // MARK: - Bottom Sheet Overlay
     private var bottomSheetOverlay: some View {
         ZStack {
@@ -602,7 +642,44 @@ public struct FileBrowserLayout: View {
             VStack {
                 Spacer()
 
-                if let selectedFile = menuCoordinator.selectedFile {
+                if menuCoordinator.showSortView {
+                    // Sort options in bottom sheet
+                    VStack(spacing: 0) {
+                        // Header
+                        HStack {
+                            Text("Sort Files")
+                                .font(.system(size: 18, weight: .semibold))
+
+                            Spacer()
+
+                            Button(action: {
+                                menuCoordinator.hideBottomSheet()
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+
+                        Divider()
+
+                        // Sort options
+                        VStack(spacing: 8) {
+                            ForEach(SortOption.allCases, id: \.self) { option in
+                                UIHelpers.sortActionButton(for: option, menuCoordinator: menuCoordinator) {
+                                    updateSortOption(option)
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 4)
+                            }
+                        }
+                        .padding(.vertical, 16)
+                    }
+                    .background(Color(.systemBackground))
+                    .cornerRadius(16)
+                } else if let selectedFile = menuCoordinator.selectedFile {
                     VStack(spacing: 0) {
                         // File info header with cancel button
                         HStack(spacing: 12) {
@@ -948,7 +1025,6 @@ public struct FileBrowserLayout: View {
             }
         }
     }
-  
     private var unlockOverlay: some View {
         ZStack {
             // Semi-transparent background
@@ -1112,8 +1188,6 @@ struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
                 }
             )
         )
-
-
         topBar.view.backgroundColor = .clear
         topBar.view.translatesAutoresizingMaskIntoConstraints = false
 
