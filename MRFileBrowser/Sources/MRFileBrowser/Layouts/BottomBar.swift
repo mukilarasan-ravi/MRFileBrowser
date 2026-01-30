@@ -11,18 +11,50 @@ struct BottomBar: View {
     let onTrashTapped: () -> Void
     let onNewFolderTapped: () -> Void
     let onSortTapped: () -> Void
+    let onServerTapped: () -> Void
+    @ObservedObject var serverManager: FileServerManager
+    let serverConfiguration: ServerConfiguration
+
+    @State private var isBlinking: Bool = false
+
     var body: some View {
         HStack {
-            Button(action: { }) {
-                Image(systemName: "laptopcomputer")
-                    .aspectRatio(contentMode: .fit)
-                    .overlay(
-                        Image(systemName: "wifi")
-                            .scaleEffect(0.60)
-                            .offset(y: -0.15 )
-                    )
+            // Conditionally show server button based on configuration
+            switch serverConfiguration.serverButtonMode {
+            case .hidden:
+                EmptyView()
+            case .show, .showCustomView:
+                Button(action: onServerTapped) {
+                    Image(systemName: "laptopcomputer")
+                        .aspectRatio(contentMode: .fit)
+                        .overlay(
+                            Image(systemName: serverManager.isServerRunning ? "wifi" : "wifi.slash")
+                                .scaleEffect(0.60)
+                                .offset(y: -0.15)
+                                .foregroundColor(Color.blue.opacity(0.7))
+                        )
+                        .opacity(serverManager.isServerRunning ? (isBlinking ? 0.3 : 1.0) : 1.0)
+                        .animation(
+                            serverManager.isServerRunning ?
+                            Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true) :
+                            nil,
+                            value: isBlinking
+                        )
+                        .onAppear {
+                            if serverManager.isServerRunning {
+                                startBlinking()
+                            }
+                        }
+                        .onReceive(serverManager.$isServerRunning) { isRunning in
+                            if isRunning {
+                                startBlinking()
+                            } else {
+                                stopBlinking()
+                            }
+                        }
+                }
+                Spacer()
             }
-            Spacer()
 
             Button(action: onTrashTapped) {
                 Image(systemName: "trash")
@@ -43,5 +75,17 @@ struct BottomBar: View {
         .font(.system(size: 30))
         .padding(.horizontal)
         .foregroundColor(.blue)
+    }
+
+    private func startBlinking() {
+        withAnimation(Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+            isBlinking = true
+        }
+    }
+
+    private func stopBlinking() {
+        withAnimation(.default) {
+            isBlinking = false
+        }
     }
 }

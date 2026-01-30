@@ -5,15 +5,18 @@ public struct FileBrowserRootView: View {
 
     public let folderURL: URL
     @Binding var titleName: String
+    private let serverConfiguration: ServerConfiguration
     @State private var isGridView = true
     @State private var columnsCount = 2
 
     // MARK: - Public initializer
     public init(
         folderURL: URL,
-        titleName: Binding<String>
+        titleName: Binding<String>,
+        serverConfiguration: ServerConfiguration = .default
     ) {
         self.folderURL = folderURL
+        self.serverConfiguration = serverConfiguration
         _titleName = titleName
     }
 
@@ -23,7 +26,8 @@ public struct FileBrowserRootView: View {
                         folderURL: folderURL,
                         titleName: $titleName,
                         isGridView: $isGridView,
-                        columnsCount: $columnsCount
+                        columnsCount: $columnsCount,
+                        serverConfiguration : serverConfiguration,
                     )
 
             .navigationBarBackButtonHidden(true)

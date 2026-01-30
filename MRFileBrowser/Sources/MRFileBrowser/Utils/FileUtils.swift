@@ -153,7 +153,7 @@ class FileUtils {
     }
 
     //Get detailed file information
-    static func getFileInfo(for url: URL) -> FileInfo? {
+    static func getFileInfo(for url: URL) -> FileItem? {
         guard fileManager.fileExists(atPath: url.path) else {
             return nil
         }
@@ -169,15 +169,22 @@ class FileUtils {
                 .typeIdentifierKey
             ])
 
-            return FileInfo(
+            let isDirectory = resourceValues.isDirectory ?? false
+            let isDirectlyLocked = LockManager.shared.isFileLocked(url.path)
+            let hasParentLocked = isAnyParentLocked(url.path)
+
+            // Create relative path for FileItem
+            let relativePath = url.path
+
+            return FileItem(
                 name: url.lastPathComponent,
-                path: url.path,
-                isDirectory: resourceValues.isDirectory ?? false,
-                size: resourceValues.fileSize ?? 0,
-                creationDate: resourceValues.creationDate,
+                path: relativePath,
+                isDirectory: isDirectory,
+                size: resourceValues.fileSize.map(Int64.init),
                 modificationDate: resourceValues.contentModificationDate,
-                lastAccessDate: resourceValues.contentAccessDate,
-                fileType: url.hasDirectoryPath ? "Folder" : url.pathExtension.mediaType
+                fileExtension: url.pathExtension,
+                isLocked: isDirectlyLocked,
+                isParentLocked: hasParentLocked
             )
         } catch {
             return nil
@@ -383,6 +390,40 @@ class FileUtils {
         }
     }
 
+    // Lock Management Utilities
+
+    /// Helper function to check if any parent directory is locked
+    static func isAnyParentLocked(_ path: String, rootDirectory: String? = nil) -> Bool {
+        // Check all parent directories (not the path itself)
+        var currentPath = path
+        let rootPath = rootDirectory ?? "/"
+
+        while !currentPath.isEmpty && currentPath != rootPath {
+            let parentPath = (currentPath as NSString).deletingLastPathComponent
+            if parentPath == currentPath {
+                break // Avoid infinite loop
+            }
+
+            if LockManager.shared.isFileLocked(parentPath) {
+                return true
+            }
+
+            currentPath = parentPath
+        }
+
+        return false
+    }
+
+    /// Helper function to check if a path or any of its parent directories is locked
+    static func isPathOrParentLocked(_ path: String, rootDirectory: String? = nil) -> Bool {
+        // Check the path itself
+        if LockManager.shared.isFileLocked(path) {
+            return true
+        }
+
+        return isAnyParentLocked(path, rootDirectory: rootDirectory)
+    }
+
     //File Metadata Utilities
 
     //Gets the modification date for a file or directory
@@ -401,42 +442,106 @@ class FileUtils {
         }
     }
 
+    // File Size Formatting Utility
+    static func formatFileSize(_ size: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useAll]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: size)
+    }
+
 }
 
-//File information structure
-struct FileInfo {
-    let name: String
-    let path: String
-    let isDirectory: Bool
-    let size: Int
-    let creationDate: Date?
-    let modificationDate: Date?
-    let lastAccessDate: Date?
-    let fileType: String
 
-    var formattedSize: String {
+
+//File Item Data Structure for HTTP Server
+public struct FileItem {
+    public let name: String
+    public let path: String
+    public let isDirectory: Bool
+    public let size: Int64?
+    public let modificationDate: Date?
+    public let fileExtension: String
+    public let isLocked: Bool
+    public let isParentLocked: Bool
+
+    public init(name: String, path: String, isDirectory: Bool, size: Int64?, modificationDate: Date?, fileExtension: String, isLocked: Bool = false, isParentLocked: Bool = false) {
+        self.name = name
+        self.path = path
+        self.isDirectory = isDirectory
+        self.size = size
+        self.modificationDate = modificationDate
+        self.fileExtension = fileExtension
+        self.isLocked = isLocked
+        self.isParentLocked = isParentLocked
+    }
+
+    // Computed properties for compatibility with old FileInfo usage
+    public var fileType: String {
+        return isDirectory ? "Folder" : fileExtension.mediaType
+    }
+
+    public var formattedSize: String {
         if isDirectory {
             return "--"
         }
 
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB, .useGB, .useTB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(size))
-    }
-    var formattedCreationDate: String {
-        guard let date = creationDate else { return "Unknown" }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        guard let size = size else { return "Unknown" }
+        return FileUtils.formatFileSize(size)
     }
 
-    var formattedModificationDate: String {
+    public var formattedModificationDate: String {
         guard let date = modificationDate else { return "Unknown" }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    // Note: creationDate and lastAccessDate not available in current FileItem
+    // For compatibility, using modificationDate as fallback
+    public var formattedCreationDate: String {
+        return formattedModificationDate // Fallback since we don't have creation date
+    }
+}
+
+//Directory Listing Data Structure for HTTP Server
+public struct DirectoryListing {
+    public let title: String
+    public let relativePath: String
+    public let isRoot: Bool
+    public let parentPath: String?
+    public let items: [FileItem]
+
+    public init(title: String, relativePath: String, isRoot: Bool, parentPath: String?, items: [FileItem]) {
+        self.title = title
+        self.relativePath = relativePath
+        self.isRoot = isRoot
+        self.parentPath = parentPath
+        self.items = items
+    }
+}
+
+//Lock Reason Enum
+public enum LockReason {
+    case locked
+    case parentLocked
+
+    public var description: String {
+        switch self {
+        case .locked:
+            return "This item is locked"
+        case .parentLocked:
+            return "This item is in a locked folder"
+        }
+    }
+
+    public var stringValue: String {
+        switch self {
+        case .locked:
+            return "locked"
+        case .parentLocked:
+            return "parent-locked"
+        }
     }
 }

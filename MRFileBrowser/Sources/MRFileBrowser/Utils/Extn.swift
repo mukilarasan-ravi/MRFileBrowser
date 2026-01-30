@@ -299,3 +299,15 @@ struct UIHelpers {
         .buttonStyle(PlainButtonStyle())
     }
 }
+
+//Clipboard Utilities
+extension UIPasteboard {
+    /// Copies text to clipboard with haptic feedback
+    static func copyToClipboard(_ text: String) {
+        UIPasteboard.general.string = text
+
+        // Show haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+}

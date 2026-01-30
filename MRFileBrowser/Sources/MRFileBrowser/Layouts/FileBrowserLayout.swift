@@ -62,8 +62,14 @@ public struct FileBrowserLayout: View {
 
     @State private var selectedFolder: URL? = nil
     @State private var previewItem: PreviewItem? = nil // For full-screen preview
+    @State private var showServerStatus = false
+    @State private var showCustomServerView = false
 
     @ObservedObject private var menuCoordinator = MenuCoordinator()
+    @ObservedObject private var serverManager: FileServerManager
+
+    // Server configuration
+    private let serverConfiguration: ServerConfiguration
 
     @Environment(\.presentationMode) private var presentationMode
 
@@ -74,7 +80,8 @@ public struct FileBrowserLayout: View {
         isGridView: Binding<Bool>,
         columnsCount: Binding<Int>,
         isRoot: Bool = true,
-        initialRootURL: URL? = nil
+        initialRootURL: URL? = nil,
+        serverConfiguration: ServerConfiguration = .default
     ) {
         self.folderURL = folderURL
         self.isRoot = isRoot
@@ -82,6 +89,8 @@ public struct FileBrowserLayout: View {
         _titleName = titleName
         _isGridView = isGridView
         _columnsCount = columnsCount
+        self.serverConfiguration = serverConfiguration
+        self.serverManager = FileServerManager(serverConfiguration: serverConfiguration)
     }
 
     // MARK: - Body
@@ -149,16 +158,22 @@ public struct FileBrowserLayout: View {
                 .animation(.default, value: isGridView)
                 // Force view updates when sort options change
                 .id(refreshKey)
-                // Bottom Bar
-                BottomBar(
-                    onTrashTapped: navigateToTrashFolder,
-                    onNewFolderTapped: showNewFolderDialog,
-                    onSortTapped: showSortDialog
-                )
+
+                // Bottom Bar (hidden in trash folder)
+                if !folderURL.isTrashFolder {
+                    BottomBar(
+                        onTrashTapped: navigateToTrashFolder,
+                        onNewFolderTapped: showNewFolderDialog,
+                        onSortTapped: showSortDialog,
+                        onServerTapped: toggleServerView,
+                        serverManager: serverManager,
+                        serverConfiguration: serverConfiguration
+                    )
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity)
                     .background(Color(.systemBackground))
+                }
             }
 
             // MARK: - Full-Screen QuickLook Preview
@@ -175,6 +190,18 @@ public struct FileBrowserLayout: View {
             if menuCoordinator.isBottomSheetVisible {
                 bottomSheetOverlay
                     .zIndex(100)
+            }
+
+            //Server Status Overlay
+            if showServerStatus {
+                serverStatusOverlay
+                    .zIndex(99)
+            }
+
+            //Custom Server View Overlay
+            if showCustomServerView {
+                customServerViewOverlay
+                    .zIndex(99)
             }
             //
             if( menuCoordinator.shouldShowFileExtensionsAlert ){
@@ -447,7 +474,8 @@ public struct FileBrowserLayout: View {
                 isGridView: $isGridView,
                 columnsCount: $columnsCount,
                 isRoot: false,
-                initialRootURL: initialRootURL
+                initialRootURL: initialRootURL,
+                serverConfiguration: serverConfiguration
             )
         }
     }
@@ -566,6 +594,26 @@ public struct FileBrowserLayout: View {
             menuCoordinator.sortBy = option
         }
         refreshKey = UUID()
+    }
+
+    //Server Functions
+    private func toggleServerView() {
+        switch serverConfiguration.serverButtonMode {
+        case .show:
+            showServerStatus.toggle()
+        case .showCustomView:
+            showCustomServerView.toggle()
+        case .hidden:
+            break // Should not be called since button is hidden
+        }
+    }
+
+    private func startServer() {
+        serverManager.startServer(rootDirectory: initialRootURL)
+    }
+
+    private func stopServer() {
+        serverManager.stopServer()
     }
 
     private func performCreateFolder() {
@@ -849,6 +897,116 @@ public struct FileBrowserLayout: View {
             }
             .edgesIgnoringSafeArea(.bottom)
         }
+    }
+
+    //Server Status Overlay
+    private var serverStatusOverlay: some View {
+        ZStack {
+            // Dim background
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    showServerStatus = false
+                }
+
+            // Server status sheet
+            VStack {
+                Spacer()
+
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        Text("File Server")
+                            .font(.system(size: 18, weight: .semibold))
+
+                        Spacer()
+
+                        Button(action: {
+                            showServerStatus = false
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .frame(width: 30, height: 30)
+                                .background(Color(UIColor.tertiarySystemFill))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .padding(.top, 24)
+                    .padding(.bottom, 20)
+                    .padding(.horizontal, 20)
+
+                    Divider()
+
+                    // Server Status
+                    VStack(spacing: 16) {
+                        ServerStatusView(serverManager: serverManager)
+
+                        // Server Controls
+                        HStack(spacing: 16) {
+                            Button(action: {
+                                if serverManager.isServerRunning {
+                                    serverManager.stopServer()
+                                } else {
+                                    serverManager.startServer(rootDirectory: initialRootURL)
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: serverManager.isServerRunning ? "stop.fill" : "play.fill")
+                                        .foregroundColor(.white)
+                                    Text(serverManager.isServerRunning ? "Stop Server" : "Start Server")
+                                        .foregroundColor(.white)
+                                        .font(.system(size: 16, weight: .medium))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(serverManager.isServerRunning ? Color.red : Color.blue)
+                                .cornerRadius(8)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+
+                    // Bottom safe area
+                    Rectangle()
+                        .fill(Color(UIColor.systemBackground))
+                        .frame(height: 20)
+                }
+                .background(Color(UIColor.systemBackground))
+                .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
+                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
+            }
+        }
+        .edgesIgnoringSafeArea(.bottom)
+    }
+
+    //Custom Server View Overlay
+    private var customServerViewOverlay: some View {
+        ZStack {
+            // Dim background
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .onTapGesture {
+                    showCustomServerView = false
+                }
+
+            // Custom server view
+            if case .showCustomView(let customViewProvider) = serverConfiguration.serverButtonMode {
+                VStack {
+                    Spacer()
+
+                    customViewProvider {
+                        // Dismiss callback - this allows the custom view to close the overlay
+                        showCustomServerView = false
+                    }
+                    .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
+                }
+            }
+        }
+        .edgesIgnoringSafeArea(.bottom)
     }
 
     // MARK: - File Info View Overlay

@@ -67,7 +67,7 @@ final class MenuCoordinator: ObservableObject {
     @Published var folderTree: [FolderNode] = []
 
     @Published var showFileInfo: Bool = false
-    @Published var fileInfo: FileInfo? = nil
+    @Published var fileInfo: FileItem? = nil
     // Restore-related state
     @Published var showRestoreLocationPicker: Bool = false
     @Published var restoreSourceFile: URL? = nil
