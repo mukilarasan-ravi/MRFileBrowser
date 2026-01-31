@@ -310,4 +310,228 @@ extension UIPasteboard {
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
     }
+
+    /// Copies text to clipboard with haptic feedback and optional toast notification
+    static func copyToClipboard(_ text: String, showToast: Bool = true) {
+        UIPasteboard.general.string = text
+
+        // Show haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+
+        // Show success toast if requested
+        if showToast {
+            Toast.showSuccess("Copied.")
+        }
+    }
+}
+
+// Toast Utilities
+
+/// Configuration for toast appearance and behavior
+struct ToastConfiguration {
+    let message: String
+    let icon: String?
+    let backgroundColor: Color
+    let textColor: Color
+    let buttonTitle: String?
+    let buttonAction: (() -> Void)?
+    let autoHideDelay: TimeInterval
+    let allowSwipeToDismiss: Bool
+
+    init(
+        message: String,
+        icon: String? = "checkmark.circle.fill",
+        backgroundColor: Color = Color.blue.opacity(0.7),
+        textColor: Color = .white,
+        buttonTitle: String? = nil,
+        buttonAction: (() -> Void)? = nil,
+        autoHideDelay: TimeInterval = 3.0,
+        allowSwipeToDismiss: Bool = true
+    ) {
+        self.message = message
+        self.icon = icon
+        self.backgroundColor = backgroundColor
+        self.textColor = textColor
+        self.buttonTitle = buttonTitle
+        self.buttonAction = buttonAction
+        self.autoHideDelay = autoHideDelay
+        self.allowSwipeToDismiss = allowSwipeToDismiss
+    }
+}
+
+/// Global Toast Manager - Singleton for app-wide toast management
+class ToastManager: ObservableObject {
+    static let shared = ToastManager()
+
+    @Published var isVisible = false
+    @Published var configuration: ToastConfiguration?
+
+    private var hideTimer: Timer?
+
+    private init() {} // Private init for singleton
+
+    /// Show toast with configuration
+    func show(_ config: ToastConfiguration) {
+        // Cancel any existing timer
+        hideTimer?.invalidate()
+
+        configuration = config
+        isVisible = true
+
+        // Auto-hide if delay is greater than 0
+        if config.autoHideDelay > 0 {
+            hideTimer = Timer.scheduledTimer(withTimeInterval: config.autoHideDelay, repeats: false) { _ in
+                self.hide()
+            }
+        }
+    }
+
+    /// Hide the toast
+    func hide() {
+        hideTimer?.invalidate()
+        hideTimer = nil
+        isVisible = false
+    }
+}
+
+/// Static Toast utility functions
+struct Toast {
+    /// Show success toast with optional action button
+    static func showSuccess(
+        _ message: String,
+        buttonTitle: String? = nil,
+        buttonAction: (() -> Void)? = nil
+    ) {
+        let config = ToastConfiguration(
+            message: message,
+            icon: "checkmark.circle.fill",
+            backgroundColor: Color.blue.opacity(0.7),
+            buttonTitle: buttonTitle,
+            buttonAction: buttonAction
+        )
+        ToastManager.shared.show(config)
+    }
+
+    /// Show error toast
+    static func showError(_ message: String) {
+        let config = ToastConfiguration(
+            message: message,
+            icon: "xmark.circle.fill",
+            backgroundColor: Color.red.opacity(0.8)
+        )
+        ToastManager.shared.show(config)
+    }
+
+    /// Show info toast with optional action button
+    static func showInfo(
+        _ message: String,
+        buttonTitle: String? = nil,
+        buttonAction: (() -> Void)? = nil
+    ) {
+        let config = ToastConfiguration(
+            message: message,
+            icon: "info.circle.fill",
+            backgroundColor: Color.blue.opacity(0.7),
+            buttonTitle: buttonTitle,
+            buttonAction: buttonAction
+        )
+        ToastManager.shared.show(config)
+    }
+
+    /// Show custom toast with full configuration
+    static func show(_ config: ToastConfiguration) {
+        ToastManager.shared.show(config)
+    }
+
+    /// Hide current toast
+    static func hide() {
+        ToastManager.shared.hide()
+    }
+}
+
+/// Reusable Toast View Component
+struct ToastView: View {
+    let configuration: ToastConfiguration
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack {
+            // Icon (optional)
+            if let icon = configuration.icon {
+                Image(systemName: icon)
+                    .foregroundColor(configuration.textColor)
+                    .font(.system(size: 20))
+            }
+
+            // Message
+            Text(configuration.message)
+                .foregroundColor(configuration.textColor)
+                .font(.system(size: 16, weight: .medium))
+                .lineLimit(1)
+
+            Spacer()
+
+            // Action button (optional)
+            if let buttonTitle = configuration.buttonTitle,
+               let buttonAction = configuration.buttonAction {
+                Button(buttonTitle) {
+                    buttonAction()
+                }
+                .foregroundColor(configuration.textColor)
+                .font(.system(size: 16, weight: .bold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(8)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(configuration.backgroundColor)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
+        .gesture(
+            configuration.allowSwipeToDismiss ? 
+            DragGesture()
+                .onEnded { gesture in
+                    // If swipe down (positive height translation > 50)
+                    if gesture.translation.height > 50 {
+                        onDismiss()
+                    }
+                } : nil
+        )
+    }
+}
+
+/// View modifier for adding toast functionality to any view
+struct ToastModifier: ViewModifier {
+    @ObservedObject var toastManager: ToastManager = ToastManager.shared
+
+    func body(content: Content) -> some View {
+        ZStack {
+            content
+
+            if toastManager.isVisible, let config = toastManager.configuration {
+                VStack {
+                    Spacer()
+                    ToastView(configuration: config) {
+                        toastManager.hide()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 100) // Position above bottom bar
+                }
+                .zIndex(10000)
+                .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
+                .animation(.easeInOut(duration: 0.3), value: toastManager.isVisible)
+            }
+        }
+    }
+}
+
+extension View {
+    /// Add toast functionality to any view
+    func toast() -> some View {
+        self.modifier(ToastModifier())
+    }
 }

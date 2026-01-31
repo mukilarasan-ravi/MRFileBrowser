@@ -87,12 +87,6 @@ final class MenuCoordinator: ObservableObject {
     @Published var sortBy: SortOption = .name
     @Published var sortOrder: SortOrder = .ascending
 
-    // Undo toast state
-    @Published var showUndoToast: Bool = false
-    @Published var undoMessage: String = ""
-    @Published var trashedFileURL: URL? = nil
-    @Published var originalFileURL: URL? = nil
-    private var undoTimer: Timer? = nil
     // Pending action to execute after unlock
     private var pendingAction: (() -> Void)? = nil
 
@@ -109,7 +103,7 @@ final class MenuCoordinator: ObservableObject {
             isBottomSheetVisible = false
         }
     }
-    func resetVar(ignoreUndo: Bool = false){
+    func resetVar(){
         withAnimation(.easeOut) {
             isBottomSheetVisible = false
             showMoveView = false
@@ -141,10 +135,6 @@ final class MenuCoordinator: ObservableObject {
         // Reset restore state
         restoreSourceFile = nil
         selectedRestoreDestination = nil
-        // Reset undo state only if not ignored
-        if !ignoreUndo {
-            hideUndoToast()
-        }
     }
 
     func prepareMove(for file: URL, availableFolders: [URL]) {
@@ -247,43 +237,5 @@ final class MenuCoordinator: ObservableObject {
         // Build folder tree starting from root
         buildFolderTree()
         showRestoreLocationPicker = true
-    }
-    //Undo Methods
-    func showUndoToast(for trashedFile: URL, originalFile: URL, fileName: String) {
-        trashedFileURL = trashedFile
-        originalFileURL = originalFile
-        undoMessage = "Moved '\(fileName)' to trash"
-        withAnimation(.easeInOut) {
-            showUndoToast = true
-        }
-        // Auto-hide toast after 5 seconds
-        undoTimer?.invalidate()
-        undoTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
-            DispatchQueue.main.async {
-                self.hideUndoToast()
-            }
-        }
-    }
-    func hideUndoToast() {
-        undoTimer?.invalidate()
-        undoTimer = nil
-        withAnimation(.easeInOut) {
-            showUndoToast = false
-        }
-        // Clear undo data after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.trashedFileURL = nil
-            self.originalFileURL = nil
-            self.undoMessage = ""
-        }
-    }
-    func performUndo() -> (trashedURL: URL, originalURL: URL)? {
-        guard let trashedURL = trashedFileURL,
-              let originalURL = originalFileURL else {
-            return nil
-        }
-        let result = (trashedURL: trashedURL, originalURL: originalURL)
-        hideUndoToast()
-        return result
     }
 }

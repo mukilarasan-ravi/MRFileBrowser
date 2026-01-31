@@ -290,18 +290,9 @@ public struct FileBrowserLayout: View {
                     .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
             }
 
-            // When a file/folder moved to trash, show undo toast for a while
-            if menuCoordinator.showUndoToast {
-                VStack {
-                    Spacer()
-                    undoToastView
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 100) // Position above bottom bar
-                }
-                .zIndex(700)
-                .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
-            }
+            // Toast notifications are now handled by the static Toast utility via the .toast() modifier
         }
+        .toast()
         .onAppear(perform: loadItems)
         .navigationBarBackButtonHidden(true)
     }
@@ -396,10 +387,26 @@ public struct FileBrowserLayout: View {
             // Move to trash and get the actual trash location
             let trashedFileURL = try FileUtils.moveToTrash(fileURL: selectedFile, in: folderURL)
 
-            // Show undo toast BEFORE resetting variables
-            menuCoordinator.showUndoToast(for: trashedFileURL, originalFile: originalFileURL, fileName: fileName)
+            // Show undo toast using the static Toast utility
+            Toast.showInfo(
+                "Moved \(fileName) to Trash",
+                buttonTitle: "UNDO"
+            ) {
+                // Hide the toast first
+                Toast.hide()
 
-            menuCoordinator.resetVar(ignoreUndo: true) // We need to keep undo state to show the toast
+                // Perform undo action
+                do {
+                    let originalDirectory = originalFileURL.deletingLastPathComponent()
+                    try FileUtils.restoreFromTrash(fileURL: trashedFileURL, to: originalDirectory)
+                    loadItems() // Refresh the view to show the restored item
+                } catch {
+                    menuCoordinator.showRenameErrorMessage = "Failed to undo: \(error.localizedDescription)"
+                    menuCoordinator.shouldShowErrorMessage = true
+                }
+            }
+
+            menuCoordinator.resetVar()
             loadItems() // Refresh the current view to remove the deleted item
 
         } catch FileUtils.FileError.sourceNotFound(_) {
@@ -417,21 +424,7 @@ public struct FileBrowserLayout: View {
         menuCoordinator.showRestoreLocationPicker(for: selectedFile, initialRootURL: initialRootURL)
     }
 
-    private func performUndo() {
-        guard let undoInfo = menuCoordinator.performUndo() else {
-            return
-        }
-        do {
-            // Restore the file from trash to its original location
-            let originalDirectory = undoInfo.originalURL.deletingLastPathComponent()
-            try FileUtils.restoreFromTrash(fileURL: undoInfo.trashedURL, to: originalDirectory)
-
-            loadItems() // Refresh the view to show the restored item
-        } catch {
-            menuCoordinator.showRenameErrorMessage = "Failed to undo: \(error.localizedDescription)"
-            menuCoordinator.shouldShowErrorMessage = true
-        }
-    }
+    // performUndo method removed - undo functionality is now handled inline with the toast button action
 
     private func performRestoreToLocation() {
         guard let sourceFile = menuCoordinator.restoreSourceFile,
@@ -618,9 +611,12 @@ public struct FileBrowserLayout: View {
 
     private func performCreateFolder() {
         do {
-            try FileUtils.createFolder(named: menuCoordinator.newFolderName, in: folderURL)
+            let folderName = menuCoordinator.newFolderName // Store folder name before reset
+            try FileUtils.createFolder(named: folderName, in: folderURL)
             menuCoordinator.resetVar()
             loadItems() // Refresh to show the new folder
+            // Show success toast with the stored folder name
+            Toast.showSuccess("Created folder '\(folderName)'")
         } catch FileUtils.FileError.destinationAlreadyExists(_) {
             menuCoordinator.showRenameErrorMessage = "A folder named '\(menuCoordinator.newFolderName)' already exists"
             menuCoordinator.shouldShowErrorMessage = true
@@ -1262,48 +1258,7 @@ public struct FileBrowserLayout: View {
         }
     }
 
-    //Undo Toast View
-    private var undoToastView: some View {
-        HStack {
-            // Success icon
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.white)
-                .font(.system(size: 20))
-
-            // Message
-            Text(menuCoordinator.undoMessage)
-                .foregroundColor(.white)
-                .font(.system(size: 16, weight: .medium))
-                .lineLimit(1)
-
-            Spacer()
-
-            // Undo button
-            Button("UNDO") {
-                performUndo()
-            }
-            .foregroundColor(.white)
-            .font(.system(size: 16, weight: .bold))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.2))
-            .cornerRadius(8)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.blue.opacity(0.7))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
-        .gesture(
-            DragGesture()
-                .onEnded { gesture in
-                    // If swipe down (positive height translation > 50)
-                    if gesture.translation.height > 50 {
-                        menuCoordinator.hideUndoToast()
-                    }
-                }
-        )
-    }
+    // The hardcoded undoToastView has been replaced by the reusable Toast utility system
 }
 
 // MARK: - Full Screen QuickLook Preview

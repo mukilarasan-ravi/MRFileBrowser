@@ -44,13 +44,13 @@ struct ServerStatusView: View {
                             .font(.system(.caption, design: .monospaced))
                             .foregroundColor(.blue)
                             .onTapGesture {
-                                UIPasteboard.copyToClipboard(serverManager.serverURL)
+                                UIPasteboard.copyToClipboard(serverManager.serverURL, showToast: true)
                             }
 
                         Spacer()
 
                         Button("Copy") {
-                            UIPasteboard.copyToClipboard(serverManager.serverURL)
+                            UIPasteboard.copyToClipboard(serverManager.serverURL, showToast: true)
                         }
                         .font(.caption)
                         .foregroundColor(.blue)
@@ -122,7 +122,7 @@ struct QRCodeView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                     .onTapGesture {
-                        UIPasteboard.copyToClipboard(url)
+                        UIPasteboard.copyToClipboard(url, showToast: true)
                     }
 
                 Spacer()
@@ -131,6 +131,7 @@ struct QRCodeView: View {
                 trailing: Button("Done") { presentationMode.wrappedValue.dismiss() }
             )
         }
+        .toast()
     }
 
     private func generateQRCode(from string: String) -> UIImage? {
