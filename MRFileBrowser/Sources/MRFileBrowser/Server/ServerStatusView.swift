@@ -11,13 +11,14 @@ struct ServerStatusView: View {
     @ObservedObject var serverManager: FileServerManager
     @State private var showQRCode = false
     @State private var showServerDetails = false
+    @Environment(\.themeConfiguration) private var theme
 
     var body: some View {
         VStack(spacing: 16) {
             // Server Status Header
             HStack {
                 Image(systemName: serverManager.isServerRunning ? "wifi.circle.fill" : "wifi.slash")
-                    .foregroundColor(Color.blue.opacity(0.7))
+                    .foregroundColor(theme.serverColor)
                     .font(.title)
 
                 Text(serverManager.isServerRunning ? "Server Running" : "Server Stopped")
@@ -28,7 +29,7 @@ struct ServerStatusView: View {
                 if serverManager.isServerRunning {
                     Button(action: { showQRCode.toggle() }) {
                         Image(systemName: "qrcode")
-                            .foregroundColor(.blue)
+                            .foregroundColor(theme.primaryColor)
                     }
                 }
             }
@@ -42,7 +43,7 @@ struct ServerStatusView: View {
 
                         Text(serverManager.serverURL)
                             .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.blue)
+                            .foregroundColor(theme.primaryColor)
                             .onTapGesture {
                                 UIPasteboard.copyToClipboard(serverManager.serverURL, showToast: true)
                             }
@@ -53,7 +54,7 @@ struct ServerStatusView: View {
                             UIPasteboard.copyToClipboard(serverManager.serverURL, showToast: true)
                         }
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(theme.primaryColor)
                     }
 
                     HStack {
@@ -74,7 +75,7 @@ struct ServerStatusView: View {
                         .multilineTextAlignment(.leading)
                 }
                 .padding(12)
-                .background(Color(.systemGray6))
+                .background(theme.secondaryBackgroundColor)
                 .cornerRadius(8)
             }
         }
@@ -87,6 +88,7 @@ struct ServerStatusView: View {
 struct QRCodeView: View {
     let url: String
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.themeConfiguration) private var theme
 
     var body: some View {
         NavigationView {
@@ -101,7 +103,7 @@ struct QRCodeView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 200, height: 200)
-                        .background(Color.white)
+                        .background(theme.backgroundColor)
                         .cornerRadius(12)
                         .shadow(radius: 4)
                 } else {
@@ -118,7 +120,7 @@ struct QRCodeView: View {
 
                 Text(url)
                     .font(.system(.body, design: .monospaced))
-                    .foregroundColor(.blue)
+                    .foregroundColor(theme.primaryColor)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                     .onTapGesture {

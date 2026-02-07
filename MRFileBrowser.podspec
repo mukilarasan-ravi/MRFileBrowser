@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
   #
 
   spec.name         = "MRFileBrowser"
-  spec.version      = "0.0.6"
+  spec.version      = "0.0.7"
   spec.summary      = "A customizable file browser UI component for iOS."
 
   # This description is used to generate tags and improve search results.
@@ -27,6 +27,8 @@ Pod::Spec.new do |spec|
   spec.description  = <<-DESC
 MRFileBrowser is a lightweight, customizable file browsing UI component for iOS.
 It provides a top bar, scroll-detecting search bar, file/folder list view, and a bottom toolbar. 
+Features comprehensive theming support with predefined themes (blue, green, orange)
+and full customization options for colors, backgrounds, and UI elements.
 Designed for developers who want to integrate a clean, modern file explorer in their app.
 DESC
 

@@ -11,6 +11,7 @@ public struct TopBar: View {
 
     let showsSearch: Bool
     let showsGridToggle: Bool
+    @Environment(\.themeConfiguration) private var theme
 
     public var onBack: () -> Void
 
@@ -41,6 +42,7 @@ public struct TopBar: View {
             Button(action: onBack) {
                 Image(systemName: isRoot ? "xmark" : "chevron.left")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(isRoot ? theme.topBarCloseButtonColor : theme.primaryColor)
             }
 
             Spacer()
@@ -51,6 +53,7 @@ public struct TopBar: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
+                .foregroundColor(theme.primaryTextColor)
 
             Spacer()
 
@@ -60,6 +63,7 @@ public struct TopBar: View {
                     isGridView.toggle()
                 } label: {
                     Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
+                        .foregroundColor(theme.primaryColor)
                 }
             }
 
@@ -71,11 +75,12 @@ public struct TopBar: View {
                     }
                 } label: {
                     Image(systemName: "magnifyingglass")
+                        .foregroundColor(theme.primaryColor)
                 }
             }
         }
         .frame(height: 56)
         .padding(.horizontal)
-        .background(Color(UIColor.systemBackground))
+        .background(theme.secondaryBackgroundColor)
     }
 }

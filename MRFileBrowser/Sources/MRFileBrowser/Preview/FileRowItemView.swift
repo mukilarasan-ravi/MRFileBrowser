@@ -7,6 +7,7 @@ struct FileRowItemView: View {
     @State private var thumbnail: UIImage? = nil
     @State private var isLoading = false
     @ObservedObject private var lockManager = LockManager.shared
+    @Environment(\.themeConfiguration) private var theme
 
     var body: some View {
         ZStack {
@@ -14,24 +15,24 @@ struct FileRowItemView: View {
             if lockManager.isFileLocked(url.path) {
                 // Show lock overlay instead of thumbnail/preview
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(red: 0.9, green: 0.95, blue: 1.0))
+                    .fill(theme.folderColor)
                     .frame(width: size, height: size)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                            .stroke(theme.primaryColor.opacity(0.3), lineWidth: 1)
                     )
                     .overlay(
                         ZStack {
                             Image(systemName: url.isDirectory ? "folder.fill" : url.pathExtension.fileTypeIcon)
                                 .font(.system(size: size * 0.5))
-                                .foregroundColor(Color.blue.opacity(0.7))
+                                .foregroundColor(url.isDirectory ? theme.folderColor: theme.fileColor)
                             // Show shield icon for both files and folders when locked
                             Image(systemName: "lock.shield.fill")
                                 .font(.system(size: size * 0.25))
                                 .foregroundColor(.white)
                                 .background(
                                     Circle()
-                                        .fill(Color.blue.opacity(0.7))
+                                        .fill(theme.lockColor)
                                         .frame(width: size * 0.3, height: size * 0.3)
                                 )
                                 .offset(x: size * 0.25, y: -size * 0.25)

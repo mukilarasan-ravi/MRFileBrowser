@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SearchBar: View {
     @State private var searchText = ""
+    @Environment(\.themeConfiguration) private var theme
 
     var body: some View {
         HStack {
@@ -16,7 +17,7 @@ struct SearchBar: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
             Button(action: { searchText = "" }) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.gray)
+                    .foregroundColor(theme.closeButtonColor)
             }
         }
         .padding(.horizontal)

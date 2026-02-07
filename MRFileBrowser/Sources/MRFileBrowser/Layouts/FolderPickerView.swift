@@ -72,6 +72,7 @@ public struct FolderPickerView: View {
     @State private var expandedFolders: Set<URL> = []
     @State private var folderTree: [FolderNode] = []
     @State private var viewHeight: CGFloat = 400
+    @Environment(\.themeConfiguration) private var theme
 
     //Init function
     public init(
@@ -87,7 +88,7 @@ public struct FolderPickerView: View {
         VStack(spacing: 0) {
             //Drag handle for resizing
             RoundedRectangle(cornerRadius: 2.5)
-                .fill(Color.secondary.opacity(0.6))
+                .fill(theme.secondaryTextColor.opacity(0.6))
                 .frame(width: 40, height: 5)
                 .padding(.top, 8)
 
@@ -96,7 +97,7 @@ public struct FolderPickerView: View {
                     Button("Cancel") {
                         delegate?.folderPickerDidCancel(self)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(theme.closeButtonColor)
                 }
 
                 Spacer()
@@ -104,6 +105,7 @@ public struct FolderPickerView: View {
                 Text(configuration.title)
                     .font(.headline)
                     .fontWeight(.semibold)
+                    .foregroundColor(theme.primaryTextColor)
 
                 Spacer()
 
@@ -112,7 +114,8 @@ public struct FolderPickerView: View {
                         delegate?.folderPicker(self, didSelectFolder: selectedFolder)
                     }
                 }
-                .foregroundColor(selectedFolder != nil ? .blue : .gray)
+                .foregroundColor(selectedFolder != nil ? theme.primaryColor : theme.primaryTextColor.opacity(0.3))
+                .font(.system(size: 17, weight: selectedFolder != nil ? .bold : .regular))
                 .disabled(selectedFolder == nil)
             }
             .padding()
@@ -131,7 +134,7 @@ public struct FolderPickerView: View {
             .frame(maxHeight: viewHeight - 120) //Account for header and drag handle
         }
         .frame(maxWidth: .infinity)
-        .background(Color(.systemBackground))
+        .background(theme.backgroundColor)
         .gesture(
             DragGesture()
                 .onChanged { value in
@@ -373,7 +376,7 @@ public struct FolderPickerView: View {
                             } label: {
                                 Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Color.blue.opacity(0.7))
+                                    .foregroundColor(theme.primaryColor)
                                     .frame(width: 12, height: 12)
                                     .animation(.easeInOut(duration: 0.2), value: isExpanded)
                             }
@@ -383,7 +386,7 @@ public struct FolderPickerView: View {
                             // Show disabled chevron for non-expandable locked folders
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.gray.opacity(0.5))
+                                .foregroundColor(theme.secondaryTextColor.opacity(0.5))
                                 .frame(width: 12, height: 12)
                                 .frame(width: 16, height: 16)
                         }
@@ -397,16 +400,16 @@ public struct FolderPickerView: View {
                     // Item icon (folder or file)
                     if node.url.isDirectory {
                         Image(systemName: "folder.fill")
-                            .foregroundColor(Color.blue.opacity(0.7 * folderOpacity))
+                            .foregroundColor(theme.folderColor.opacity(folderOpacity))
                     } else {
                         Image(systemName: "doc.fill")
-                            .foregroundColor(Color.gray.opacity(0.7 * folderOpacity))
+                            .foregroundColor(theme.fileColor.opacity(folderOpacity))
                     }
 
                     // Item name (folder or file)
                     Text(node.url.displayName)
                         .lineLimit(1)
-                        .foregroundColor(.primary.opacity(textOpacity))
+                        .foregroundColor(theme.primaryTextColor.opacity(textOpacity))
 
                     Spacer()
 
@@ -414,18 +417,18 @@ public struct FolderPickerView: View {
                     if shouldShowLockIcon {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(.red)
+                            .foregroundColor(theme.lockColor)
                     }
 
                     // Selection indicator
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(theme.primaryColor)
                     }
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
-                .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+                .background(isSelected ? theme.primaryColor.opacity(0.1) : Color.clear)
                 .cornerRadius(8)
             }
             .buttonStyle(.plain)

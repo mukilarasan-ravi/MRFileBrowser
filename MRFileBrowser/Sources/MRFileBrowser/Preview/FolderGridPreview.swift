@@ -10,6 +10,7 @@ import SwiftUI
 struct FolderGridPreview: View {
     let url: URL
     let size: CGFloat   // total square size for the folder preview
+    @Environment(\.themeConfiguration) private var theme
 
     private var children: [URL] {
         let fm = FileManager.default
@@ -18,7 +19,9 @@ struct FolderGridPreview: View {
 
     var body: some View {
         if children.isEmpty {
-            EmptyView() // no preview if folder is empty
+            // Leave empty for clean minimal look
+            Color.clear
+                .frame(width: size, height: size)
         } else {
             VStack(spacing: 2) {
                 HStack(spacing: 2) {

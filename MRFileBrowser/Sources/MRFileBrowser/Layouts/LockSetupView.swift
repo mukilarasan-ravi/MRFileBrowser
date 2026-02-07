@@ -11,6 +11,7 @@ import LocalAuthentication
 struct LockSetupView: View {
     let filePath: String
     let fileName: String
+    let isDirectory: Bool
     @Binding var isPresented: Bool
     let onLockSet: () -> Void
     @State private var selectedMethod: LockMethod = .biometric
@@ -19,6 +20,7 @@ struct LockSetupView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var biometricType: BiometricType = .none
+    @Environment(\.themeConfiguration) private var theme
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
@@ -26,13 +28,14 @@ struct LockSetupView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "lock.shield")
                         .font(.system(size: 48))
-                        .foregroundColor(Color.blue.opacity(0.7))
-                    Text("Lock File")
+                        .foregroundColor(theme.lockColor)
+                    Text(isDirectory ? "Lock Folder" : "Lock File")
                         .font(.system(size: 22))
                         .fontWeight(.semibold)
+                        .foregroundColor(theme.primaryTextColor)
                     Text("Choose how to protect \"\(fileName)\"")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(theme.secondaryTextColor)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, 20)
@@ -76,15 +79,15 @@ struct LockSetupView: View {
                 Spacer()
                 // Action Buttons
                 VStack(spacing: 12) {
-                    Button("Lock File") {
+                    Button(isDirectory ? "Lock Folder" : "Lock File") {
                         lockFile()
                     }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle(theme: theme))
                     .disabled(!canLockFile)
                     Button("Cancel") {
                         isPresented = false
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(SecondaryButtonStyle(theme: theme))
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -193,35 +196,36 @@ struct LockMethodCard: View {
     let description: String
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.themeConfiguration) private var theme
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
                     .font(.system(size: 24))
-                    .foregroundColor(Color.blue.opacity(0.7))
+                    .foregroundColor(theme.primaryColor)
                     .frame(width: 40)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(theme.primaryTextColor)
                     Text(description)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(theme.secondaryTextColor)
                 }
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(Color.blue.opacity(0.7))
+                        .foregroundColor(theme.primaryColor)
                 }
             }
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+                    .fill(isSelected ? theme.primaryColor.opacity(0.1) : theme.secondaryBackgroundColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.blue.opacity(0.7) : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? theme.selectedBorderColor : Color.clear, lineWidth: 2)
                     )
             )
         }
@@ -257,15 +261,21 @@ enum BiometricType {
 
 // MARK: - Button Styles
 struct PrimaryButtonStyle: ButtonStyle {
+    let theme: ThemeConfiguration
+
+    init(theme: ThemeConfiguration = .blue) {
+        self.theme = theme
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundColor(.white)
+            .foregroundColor(theme.textOnPrimaryColor)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue.opacity(configuration.isPressed ? 0.8 : 1.0))
+                    .fill(theme.primaryColor.opacity(configuration.isPressed ? 0.8 : 1.0))
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
@@ -273,10 +283,16 @@ struct PrimaryButtonStyle: ButtonStyle {
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
+    let theme: ThemeConfiguration
+
+    init(theme: ThemeConfiguration = .blue) {
+        self.theme = theme
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundColor(Color.blue.opacity(0.7))
+            .foregroundColor(theme.primaryColor)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(
@@ -284,7 +300,7 @@ struct SecondaryButtonStyle: ButtonStyle {
                     .fill(Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.blue.opacity(0.7), lineWidth: 2)
+                            .stroke(theme.primaryColor, lineWidth: 2)
                     )
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)

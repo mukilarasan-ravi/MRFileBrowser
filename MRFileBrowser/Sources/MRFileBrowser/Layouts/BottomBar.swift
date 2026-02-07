@@ -16,6 +16,7 @@ struct BottomBar: View {
     let serverConfiguration: ServerConfiguration
 
     @State private var isBlinking: Bool = false
+    @Environment(\.themeConfiguration) private var theme
 
     var body: some View {
         HStack {
@@ -31,7 +32,7 @@ struct BottomBar: View {
                             Image(systemName: serverManager.isServerRunning ? "wifi" : "wifi.slash")
                                 .scaleEffect(0.60)
                                 .offset(y: -0.15)
-                                .foregroundColor(Color.blue.opacity(0.7))
+                                .foregroundColor(theme.serverColor)
                         )
                         .opacity(serverManager.isServerRunning ? (isBlinking ? 0.3 : 1.0) : 1.0)
                         .animation(
@@ -74,7 +75,7 @@ struct BottomBar: View {
         }
         .font(.system(size: 30))
         .padding(.horizontal)
-        .foregroundColor(.blue)
+        .foregroundColor(theme.primaryColor)
     }
 
     private func startBlinking() {

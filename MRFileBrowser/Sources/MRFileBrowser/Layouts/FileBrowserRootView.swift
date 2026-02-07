@@ -6,6 +6,7 @@ public struct FileBrowserRootView: View {
     public let folderURL: URL
     @Binding var titleName: String
     private let serverConfiguration: ServerConfiguration
+    private let themeConfiguration: ThemeConfiguration
     @State private var isGridView = true
     @State private var columnsCount = 2
 
@@ -13,10 +14,12 @@ public struct FileBrowserRootView: View {
     public init(
         folderURL: URL,
         titleName: Binding<String>,
-        serverConfiguration: ServerConfiguration = .default
+        serverConfiguration: ServerConfiguration = .default,
+        themeConfiguration: ThemeConfiguration = .blue
     ) {
         self.folderURL = folderURL
         self.serverConfiguration = serverConfiguration
+        self.themeConfiguration = themeConfiguration
         _titleName = titleName
     }
 
@@ -32,6 +35,7 @@ public struct FileBrowserRootView: View {
 
             .navigationBarBackButtonHidden(true)
         }
+        .environment(\.themeConfiguration, themeConfiguration) // Setting Theme as environment variable
         .navigationViewStyle(StackNavigationViewStyle()) // iPad-safe
     }
 }

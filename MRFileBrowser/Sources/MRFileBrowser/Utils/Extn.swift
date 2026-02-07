@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 import MobileCoreServices
+import Combine
 
 extension URL {
     var isDirectory: Bool {
@@ -164,12 +165,13 @@ struct AlertPrompt: View {
 
     @Binding var name: String
     @Binding var isPresented: Bool
+    @Environment(\.themeConfiguration) private var theme
 
     let onOK: () -> Void
     let onCancel: () -> Void
 
     private var okButton: some View {
-        actionButton(okButtonText, backgroundColor: .blue, textAlignment: .center) {
+        actionButton(okButtonText, backgroundColor: theme.primaryColor, textAlignment: .center) {
                 onOK()
                 isPresented = false
             }
@@ -185,7 +187,7 @@ struct AlertPrompt: View {
     var body: some View {
         if isPresented {
             ZStack {
-                Color.black.opacity(0.4)
+                theme.overlayBackgroundColor
                     .edgesIgnoringSafeArea(.all)
                     .onTapGesture {
                         onCancel()
@@ -196,6 +198,7 @@ struct AlertPrompt: View {
                     Text(title)
                         .font(.headline)
                         .multilineTextAlignment(.center)
+                        .foregroundColor(theme.primaryTextColor)
 
                     if let placeHolder = placeHolder {
                         TextField(placeHolder, text: $name)
@@ -223,7 +226,7 @@ struct AlertPrompt: View {
                 }
                 .padding(.vertical, 16)
                 .frame(width: 270)
-                .background(Color.white)
+                .background(theme.backgroundColor)
                 .cornerRadius(14)
                 .shadow(radius: 20)
             }
@@ -258,37 +261,37 @@ extension Array where Element: Hashable {
 
 //UI Related Functions
 struct UIHelpers {
-    static func actionButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+    static func actionButton(systemImage: String, label: String, theme: ThemeConfiguration = .blue, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Image(systemName: systemImage)
-                    .foregroundColor(.blue)
+                    .foregroundColor(theme.primaryColor)
                 Text(label)
-                    .foregroundColor(.primary)
+                    .foregroundColor(theme.primaryTextColor)
                 Spacer()
             }
             .padding()
-            .background(Color(.systemGray6))
+            .background(theme.secondaryBackgroundColor)
             .cornerRadius(8)
         }
     }
 
-    static func sortActionButton(for option: SortOption, menuCoordinator: MenuCoordinator, action: @escaping () -> Void) -> some View {
+    static func sortActionButton(for option: SortOption, menuCoordinator: MenuCoordinator, theme: ThemeConfiguration, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: option.icon)
                     .font(.system(size: 18))
-                    .foregroundColor(.primary)
+                    .foregroundColor(theme.primaryTextColor)
                     .frame(width: 24, height: 24)
 
                 Text(option.displayName)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .foregroundColor(theme.primaryTextColor)
 
                 Spacer()
                 if menuCoordinator.sortBy == option {
                     Text(menuCoordinator.sortOrder == .ascending ? "↑" : "↓")
-                        .foregroundColor(.blue.opacity(0.7))
+                        .foregroundColor(theme.primaryColor)
                 }
             }
             .padding(.vertical, 8)
@@ -403,22 +406,27 @@ struct Toast {
         buttonTitle: String? = nil,
         buttonAction: (() -> Void)? = nil
     ) {
+        // Use a temporary view to access environment theme
         let config = ToastConfiguration(
             message: message,
             icon: "checkmark.circle.fill",
-            backgroundColor: Color.blue.opacity(0.7),
             buttonTitle: buttonTitle,
             buttonAction: buttonAction
         )
         ToastManager.shared.show(config)
     }
 
-    /// Show error toast
-    static func showError(_ message: String) {
+    /// Show error toast with optional action button
+    static func showError(
+        _ message: String,
+        buttonTitle: String? = nil,
+        buttonAction: (() -> Void)? = nil
+    ) {
         let config = ToastConfiguration(
             message: message,
             icon: "xmark.circle.fill",
-            backgroundColor: Color.red.opacity(0.8)
+            buttonTitle: buttonTitle,
+            buttonAction: buttonAction
         )
         ToastManager.shared.show(config)
     }
@@ -432,7 +440,6 @@ struct Toast {
         let config = ToastConfiguration(
             message: message,
             icon: "info.circle.fill",
-            backgroundColor: Color.blue.opacity(0.7),
             buttonTitle: buttonTitle,
             buttonAction: buttonAction
         )
@@ -455,18 +462,20 @@ struct ToastView: View {
     let configuration: ToastConfiguration
     let onDismiss: () -> Void
 
+    @Environment(\.themeConfiguration) private var theme
+
     var body: some View {
         HStack {
             // Icon (optional)
             if let icon = configuration.icon {
                 Image(systemName: icon)
-                    .foregroundColor(configuration.textColor)
+                    .foregroundColor(theme.textOnPrimaryColor)
                     .font(.system(size: 20))
             }
 
             // Message
             Text(configuration.message)
-                .foregroundColor(configuration.textColor)
+                .foregroundColor(theme.textOnPrimaryColor)
                 .font(.system(size: 16, weight: .medium))
                 .lineLimit(1)
 
@@ -478,17 +487,17 @@ struct ToastView: View {
                 Button(buttonTitle) {
                     buttonAction()
                 }
-                .foregroundColor(configuration.textColor)
+                .foregroundColor(theme.textOnPrimaryColor)
                 .font(.system(size: 16, weight: .bold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.white.opacity(0.2))
+                .background(theme.textOnPrimaryColor.opacity(0.2))
                 .cornerRadius(8)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(configuration.backgroundColor)
+        .background(getBackgroundColor())
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 2)
         .gesture(
@@ -501,6 +510,22 @@ struct ToastView: View {
                     }
                 } : nil
         )
+    }
+    private func getBackgroundColor() -> Color {
+        // Determine background color based on icon type and theme
+        if let icon = configuration.icon {
+            switch icon {
+            case "checkmark.circle.fill":
+                return theme.successColor
+            case "xmark.circle.fill":
+                return theme.errorColor
+            case "info.circle.fill":
+                return theme.infoColor
+            default:
+                return theme.primaryColor
+            }
+        }
+        return theme.primaryColor
     }
 }
 

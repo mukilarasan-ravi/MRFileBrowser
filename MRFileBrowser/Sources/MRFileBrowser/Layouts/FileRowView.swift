@@ -14,13 +14,11 @@ enum FileRowLayout {
 
 struct FileRowView: View {
 
-    private static let folderColor = Color(red: 0.85, green: 0.92, blue: 1.0)
-    private static let lockColor = Color.blue.opacity(0.7)
-
     let url: URL
     let layout: FileRowLayout
     @ObservedObject var menuCoordinator: MenuCoordinator
     @ObservedObject private var lockManager = LockManager.shared
+    @Environment(\.themeConfiguration) private var theme
     var onTap: ((URL) -> Void)? = nil
 
     private var isLocked: Bool { lockManager.isFileLocked(url.path) }
@@ -54,7 +52,7 @@ struct FileRowView: View {
                 .foregroundColor(.secondary)
                 .font(.system(size: 16, weight: .medium))
                 .frame(width: 30, height: 30)
-                .background(Color(UIColor.systemBackground).opacity(0.9))
+                .background(theme.backgroundColor.opacity(0.9))
                 .clipShape(Circle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -90,13 +88,13 @@ private extension FileRowView {
                             ZStack {
                                 Image(systemName: "folder.fill")
                                     .font(.system(size: width * 0.4))
-                                    .foregroundColor(Color.blue.opacity(0.7))
+                                    .foregroundColor(theme.folderColor)
                                 Image(systemName: "lock.shield.fill")
                                     .font(.system(size: width * 0.15))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(theme.textOnPrimaryColor)
                                     .background(
                                         Circle()
-                                            .fill(Color.blue.opacity(0.7))
+                                            .fill(theme.lockColor)
                                             .frame(width: width * 0.18, height: width * 0.18)
                                     )
                                     .offset(x: width * 0.15, y: -width * 0.15)
@@ -104,14 +102,9 @@ private extension FileRowView {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        // Show normal folder preview for unlocked folders
-                        let items = (try? FileManager.default
-                            .contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
-
-                        if !items.isEmpty {
-                            FolderGridPreview(url: url, size: width * 0.70)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
+                        // Show normal folder preview for unlocked folders (including empty folders)
+                        FolderGridPreview(url: url, size: width * 0.70)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {
                     FileRowItemView(url: url, size: width * 0.70)
@@ -121,6 +114,7 @@ private extension FileRowView {
                 Spacer(minLength: 6)
 
                 Text(url.displayName)
+                    .foregroundColor(theme.primaryTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .font(.caption)
@@ -128,7 +122,7 @@ private extension FileRowView {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(fileInfoDetails)
-                    .foregroundColor(.gray)
+                    .foregroundColor(theme.secondaryTextColor)
                     .font(.system(size: 10))
                     .lineLimit(1)
                     .padding(.horizontal, 6)
@@ -138,7 +132,7 @@ private extension FileRowView {
             .frame(width: width, height: width)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(red: 0.85, green: 0.92, blue: 1.0))
+                    .fill(theme.secondaryBackgroundColor)
                     .shadow(color: .black.opacity(0.1), radius: 3)
             )
 
@@ -152,7 +146,7 @@ private extension FileRowView {
                     HStack {
                         Spacer()
                         Image(systemName: lockIcon)
-                            .foregroundColor(Self.lockColor)
+                            .foregroundColor(theme.lockColor)
                             .font(.system(size: 12, weight: .bold))
                             .frame(width: 20, height: 20)
                     }
@@ -181,12 +175,13 @@ private extension FileRowView {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(url.displayName)
+                    .foregroundColor(theme.primaryTextColor)
                     .font(.system(size: 15, weight: .medium))
                     .lineLimit(1)
 
                 Text(fileInfoDetails)
+                    .foregroundColor(theme.secondaryTextColor)
                     .font(.system(size: 12))
-                    .foregroundColor(.secondary)
                     .lineLimit(1)
             }
 
@@ -194,7 +189,7 @@ private extension FileRowView {
             // Lock indicator for locked files
             if isLocked {
                 Image(systemName: lockIcon)
-                    .foregroundColor(Self.lockColor)
+                    .foregroundColor(theme.lockColor)
                     .font(.system(size: 12, weight: .bold))
                     .frame(width: 20, height: 20)
             }
@@ -203,7 +198,7 @@ private extension FileRowView {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(UIColor.systemBackground))
+        .background(theme.backgroundColor)
         .contentShape(Rectangle())
     }
     // MARK: - Lock Icon Helper
@@ -221,6 +216,8 @@ struct FolderIconView: View {
 
     let size: CGFloat
     let isLocked: Bool
+    @Environment(\.themeConfiguration) private var theme
+
     init(size: CGFloat, isLocked: Bool = false) {
         self.size = size
         self.isLocked = isLocked
@@ -229,20 +226,20 @@ struct FolderIconView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color(red: 0.85, green: 0.92, blue: 1.0))
+                .fill(theme.folderColor)
                 .overlay(
                     Image(systemName: "folder.fill")
-                        .foregroundColor(Color.blue.opacity(0.7))
+                        .foregroundColor(theme.primaryColor)
                         .font(.system(size: size * 0.5))
                 )
                 .frame(width: size, height: size)
             if isLocked {
                 Image(systemName: "lock.shield.fill")
                     .font(.system(size: size * 0.25))
-                    .foregroundColor(.white)
+                    .foregroundColor(theme.primaryColor)
                     .background(
                         Circle()
-                            .fill(Color.blue.opacity(0.7))
+                            .fill(theme.lockColor)
                             .frame(width: size * 0.3, height: size * 0.3)
                     )
                     .offset(x: size * 0.25, y: -size * 0.25)

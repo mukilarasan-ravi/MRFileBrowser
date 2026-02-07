@@ -20,6 +20,7 @@ struct UnlockView: View {
     @State private var isAttempting = false
     @State private var showBiometricButton = false
     @State private var shakeOffset: CGFloat = 0
+    @Environment(\.themeConfiguration) private var theme
     private let lockManager = LockManager.shared
     var body: some View {
         VStack(spacing: 0) {
@@ -88,7 +89,7 @@ struct UnlockView: View {
                         Button(action: { isPresented = false }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 20, weight: .regular))
-                                .foregroundColor(.primary)
+                                .foregroundColor(theme.closeButtonColor)
                                 .frame(width: 65, height: 70)
                         }
                         // Zero

@@ -72,6 +72,7 @@ public struct FileBrowserLayout: View {
     private let serverConfiguration: ServerConfiguration
 
     @Environment(\.presentationMode) private var presentationMode
+    @Environment(\.themeConfiguration) private var theme
 
     // MARK: - Init
     public init(
@@ -95,7 +96,20 @@ public struct FileBrowserLayout: View {
 
     // MARK: - Body
     public var body: some View {
+        FileBrowserContent()// Created new method to wrap the main content for better readability and to apply theme background
+            .toast()
+            .onAppear(perform: loadItems)
+            .navigationBarBackButtonHidden(true)
+    }
+
+    // Content View (using environment theme)
+    @ViewBuilder
+    private func FileBrowserContent() -> some View {
         ZStack {
+            // Background color to ensure no white gaps
+            theme.backgroundColor
+                .edgesIgnoringSafeArea(.all)
+
             VStack(spacing: 0) {
 
                 // Hidden Navigation
@@ -136,10 +150,10 @@ public struct FileBrowserLayout: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 50, height: 50) // Adjust size as needed
-                                .foregroundColor(Color.blue.opacity(0.7))
+                                .foregroundColor(theme.folderColor)
 
                             Text("Folder is Empty")
-                                .foregroundColor(Color.blue.opacity(0.7))
+                                .foregroundColor(theme.secondaryTextColor)
                                 .font(.system(size: 20, weight: .regular))
 
                             Spacer()
@@ -148,13 +162,16 @@ public struct FileBrowserLayout: View {
                         ScrollView {
                             fileGridView_iOS14Plus()
                         }
+                        .background(theme.backgroundColor) // To match background color
                         .simultaneousGesture(gridMagnificationGesture())
                     } else {
                         ScrollView {
                             fileListView
                         }
+                        .background(theme.backgroundColor) // To match background color
                     }
                 }
+                .background(theme.backgroundColor) // Fill the gap with theme background
                 .animation(.default, value: isGridView)
                 // Force view updates when sort options change
                 .id(refreshKey)
@@ -172,7 +189,7 @@ public struct FileBrowserLayout: View {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity)
-                    .background(Color(.systemBackground))
+                    .background(theme.backgroundColor)
                 }
             }
 
@@ -483,7 +500,7 @@ public struct FileBrowserLayout: View {
     private var searchBar: some View {
         TextField("Search files...", text: $searchText)
             .padding(10)
-            .background(Color(.secondarySystemBackground))
+            .background(theme.secondaryBackgroundColor)
             .cornerRadius(8)
             .padding(.horizontal, 8)
     }
@@ -676,7 +693,7 @@ public struct FileBrowserLayout: View {
     private var bottomSheetOverlay: some View {
         ZStack {
             // Dim background
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     menuCoordinator.hideBottomSheet()
@@ -693,16 +710,21 @@ public struct FileBrowserLayout: View {
                         HStack {
                             Text("Sort Files")
                                 .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(theme.primaryTextColor)
 
                             Spacer()
 
                             Button(action: {
                                 menuCoordinator.hideBottomSheet()
                             }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.gray)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(theme.closeButtonColor)
+                                    .frame(width: 30, height: 30)
+                                    .background(theme.secondaryBackgroundColor)
+                                    .clipShape(Circle())
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
@@ -712,7 +734,7 @@ public struct FileBrowserLayout: View {
                         // Sort options
                         VStack(spacing: 8) {
                             ForEach(SortOption.allCases, id: \.self) { option in
-                                UIHelpers.sortActionButton(for: option, menuCoordinator: menuCoordinator) {
+                                UIHelpers.sortActionButton(for: option, menuCoordinator: menuCoordinator, theme: theme) {
                                     updateSortOption(option)
                                 }
                                 .padding(.horizontal, 20)
@@ -721,7 +743,7 @@ public struct FileBrowserLayout: View {
                         }
                         .padding(.vertical, 16)
                     }
-                    .background(Color(.systemBackground))
+                    .background(theme.backgroundColor)
                     .cornerRadius(16)
                 } else if let selectedFile = menuCoordinator.selectedFile {
                     VStack(spacing: 0) {
@@ -731,12 +753,13 @@ public struct FileBrowserLayout: View {
                             HStack(spacing: 12) {
                                 Image(systemName: selectedFile.isDirectory ? "folder.fill" : "doc.fill")
                                     .font(.system(size: 32))
-                                    .foregroundColor(Color.blue.opacity(0.7))
+                                    .foregroundColor(selectedFile.isDirectory ? theme.folderColor : theme.fileColor)
 
                                 Text(selectedFile.displayName)
                                     .font(.headline)
                                     .lineLimit(2)
                                     .multilineTextAlignment(.leading)
+                                    .foregroundColor(theme.primaryTextColor)
                             }
                             Spacer()
                             // Cancel button on the right
@@ -745,9 +768,9 @@ public struct FileBrowserLayout: View {
                             } label: {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(theme.closeButtonColor)
                                     .frame(width: 30, height: 30)
-                                    .background(Color(UIColor.tertiarySystemFill))
+                                    .background(theme.secondaryBackgroundColor)
                                     .clipShape(Circle())
                             }
                             .buttonStyle(PlainButtonStyle())
@@ -840,7 +863,7 @@ public struct FileBrowserLayout: View {
                         Spacer()
                             .frame(height: 20)
                     }
-                    .background(Color(UIColor.systemBackground))
+                    .background(theme.backgroundColor)
                     .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
                 }
@@ -855,12 +878,12 @@ public struct FileBrowserLayout: View {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 18))
-                    .foregroundColor(isDestructive ? .red : .primary)
+                    .foregroundColor(isDestructive ? theme.errorColor : theme.primaryTextColor)
                     .frame(width: 24, height: 24)
 
                 Text(title)
                     .font(.body)
-                    .foregroundColor(isDestructive ? .red : .primary)
+                    .foregroundColor(isDestructive ? theme.errorColor : theme.primaryTextColor)
 
                 Spacer()
             }
@@ -874,7 +897,7 @@ public struct FileBrowserLayout: View {
     //Move View Overlay
     private var moveViewOverlay: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     menuCoordinator.resetVar()
@@ -899,7 +922,7 @@ public struct FileBrowserLayout: View {
     private var serverStatusOverlay: some View {
         ZStack {
             // Dim background
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     showServerStatus = false
@@ -922,9 +945,9 @@ public struct FileBrowserLayout: View {
                         }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(theme.closeButtonColor)
                                 .frame(width: 30, height: 30)
-                                .background(Color(UIColor.tertiarySystemFill))
+                                .background(theme.secondaryBackgroundColor)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -950,14 +973,14 @@ public struct FileBrowserLayout: View {
                             }) {
                                 HStack {
                                     Image(systemName: serverManager.isServerRunning ? "stop.fill" : "play.fill")
-                                        .foregroundColor(.white)
+                                        .foregroundColor(theme.textOnPrimaryColor)
                                     Text(serverManager.isServerRunning ? "Stop Server" : "Start Server")
-                                        .foregroundColor(.white)
+                                        .foregroundColor(theme.textOnPrimaryColor)
                                         .font(.system(size: 16, weight: .medium))
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(serverManager.isServerRunning ? Color.red : Color.blue)
+                                .background(serverManager.isServerRunning ? theme.errorColor : theme.primaryColor)
                                 .cornerRadius(8)
                             }
                         }
@@ -967,10 +990,10 @@ public struct FileBrowserLayout: View {
 
                     // Bottom safe area
                     Rectangle()
-                        .fill(Color(UIColor.systemBackground))
+                        .fill(theme.backgroundColor)
                         .frame(height: 20)
                 }
-                .background(Color(UIColor.systemBackground))
+                .background(theme.backgroundColor)
                 .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
             }
@@ -982,7 +1005,7 @@ public struct FileBrowserLayout: View {
     private var customServerViewOverlay: some View {
         ZStack {
             // Dim background
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     showCustomServerView = false
@@ -1008,7 +1031,7 @@ public struct FileBrowserLayout: View {
     // MARK: - File Info View Overlay
     private var fileInfoViewOverlay: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     menuCoordinator.resetVar()
@@ -1024,6 +1047,7 @@ public struct FileBrowserLayout: View {
                             Text("File Information")
                                 .font(.headline)
                                 .fontWeight(.semibold)
+                                .foregroundColor(theme.primaryTextColor)
 
                             Spacer()
 
@@ -1032,9 +1056,9 @@ public struct FileBrowserLayout: View {
                             } label: {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(theme.closeButtonColor)
                                     .frame(width: 30, height: 30)
-                                    .background(Color(UIColor.tertiarySystemFill))
+                                    .background(theme.secondaryBackgroundColor)
                                     .clipShape(Circle())
                             }
                             .buttonStyle(PlainButtonStyle())
@@ -1052,16 +1076,17 @@ public struct FileBrowserLayout: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: fileInfo.isDirectory ? "folder.fill" : "doc.fill")
                                         .font(.system(size: 40))
-                                        .foregroundColor(Color.blue.opacity(0.7))
+                                        .foregroundColor(fileInfo.isDirectory ? theme.folderColor : theme.fileColor)
 
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(fileInfo.name)
                                             .font(.system(size: 40))
                                             .fontWeight(.medium)
+                                            .foregroundColor(theme.primaryTextColor)
 
                                         Text(fileInfo.fileType)
                                             .font(.caption)
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(theme.secondaryTextColor)
                                     }
 
                                     Spacer()
@@ -1090,11 +1115,12 @@ public struct FileBrowserLayout: View {
                                         Text("Path")
                                             .font(.subheadline)
                                             .fontWeight(.medium)
+                                            .foregroundColor(theme.primaryTextColor)
 
                                         ScrollView(.horizontal, showsIndicators: false) {
                                             Text(getRelativePath(for: fileInfo.path))
                                                 .font(.caption)
-                                                .foregroundColor(.secondary)
+                                                .foregroundColor(theme.secondaryTextColor)
                                                 .fixedSize(horizontal: true, vertical: false)
                                         }
                                     }
@@ -1105,7 +1131,7 @@ public struct FileBrowserLayout: View {
                         }
                         .frame(maxHeight: 400)
                     }
-                    .background(Color(.systemBackground))
+                    .background(theme.backgroundColor)
                     .clipShape(RoundedCorner(radius: 16, corners: [.topLeft, .topRight]))
                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -2)
                 }
@@ -1120,11 +1146,12 @@ public struct FileBrowserLayout: View {
             Text(label)
                 .font(.subheadline)
                 .fontWeight(.medium)
+                .foregroundColor(theme.primaryTextColor)
                 .frame(width: 80, alignment: .leading)
 
             Text(value)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(theme.secondaryTextColor)
 
             Spacer()
         }
@@ -1162,7 +1189,7 @@ public struct FileBrowserLayout: View {
 
     private var lockSetupOverlay: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     menuCoordinator.hideLockViews()
@@ -1172,6 +1199,7 @@ public struct FileBrowserLayout: View {
                 LockSetupView(
                     filePath: file.path,
                     fileName: file.lastPathComponent,
+                    isDirectory: file.isDirectory,
                     isPresented: $menuCoordinator.showLockSetup
                 ) {
                     menuCoordinator.hideLockViews()
@@ -1182,7 +1210,7 @@ public struct FileBrowserLayout: View {
     private var unlockOverlay: some View {
         ZStack {
             // Semi-transparent background
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     menuCoordinator.hideLockViews()
@@ -1222,7 +1250,7 @@ public struct FileBrowserLayout: View {
                         isPermanentUnlock: menuCoordinator.isPermanentUnlock
                     )
                     .frame(maxWidth: screenWidth * 0.75, maxHeight: screenHeight * 0.7)
-                    .background(Color(.systemBackground))
+                    .background(theme.backgroundColor)
                     .cornerRadius(20)
                     .shadow(radius: 20)
                     .transition(.scale.combined(with: .opacity))
@@ -1237,7 +1265,7 @@ public struct FileBrowserLayout: View {
     //Restore Location Picker
     private var restoreLocationPickerOverlay: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            theme.overlayBackgroundColor
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
                     menuCoordinator.resetVar()
