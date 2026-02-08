@@ -4,6 +4,22 @@ import QuickLook
 import Foundation
 import Combine
 
+// UserDefaults keys for persistent folder paths
+private extension UserDefaults {
+    static let lastMoveFolderPathKey = "MRFileBrowser.LastMoveFolderPath"
+    static let lastRestoreFolderPathKey = "MRFileBrowser.LastRestoreFolderPath"
+
+    var lastMoveFolderPath: String? {
+        get { string(forKey: Self.lastMoveFolderPathKey) }
+        set { set(newValue, forKey: Self.lastMoveFolderPathKey) }
+    }
+
+    var lastRestoreFolderPath: String? {
+        get { string(forKey: Self.lastRestoreFolderPathKey) }
+        set { set(newValue, forKey: Self.lastRestoreFolderPathKey) }
+    }
+}
+
 private class MoveFolderPickerDelegate: FolderPickerDelegate {
     private let onFolderSelected: (URL) -> Void
     private let onCancel: () -> Void
@@ -15,6 +31,8 @@ private class MoveFolderPickerDelegate: FolderPickerDelegate {
 
     func folderPicker(_ picker: FolderPickerView, selectItems urls: [URL]) {
         if let firstUrl = urls.first {
+            // Save the selected path to UserDefaults for next time
+            UserDefaults.standard.lastMoveFolderPath = firstUrl.path
             onFolderSelected(firstUrl)
         }
     }
@@ -35,6 +53,8 @@ private class RestoreFolderPickerDelegate: FolderPickerDelegate {
 
     func folderPicker(_ picker: FolderPickerView, selectItems urls: [URL]) {
         if let firstUrl = urls.first {
+            // Save the selected path to UserDefaults for next time
+            UserDefaults.standard.lastRestoreFolderPath = firstUrl.path
             onFolderSelected(firstUrl)
         }
     }
@@ -1551,7 +1571,8 @@ private struct MovePickerWrapper: View {
                 allowedRootPath: initialRootURL,
                 showCancelButton: true,
                 confirmButtonTitle: "Move",
-                lockExpandable: true
+                lockExpandable: true,
+                defaultSelectedPaths: getLastMoveFolderPath()
             ),
             delegate: delegate
         )
@@ -1568,6 +1589,16 @@ private struct MovePickerWrapper: View {
                 )
             }
         }
+    }
+    private func getLastMoveFolderPath() -> [URL]? {
+        guard let pathString = UserDefaults.standard.lastMoveFolderPath else { return nil }
+        let url = URL(fileURLWithPath: pathString)
+        // Only return if the path still exists and is within the allowed root
+        if FileManager.default.fileExists(atPath: pathString) &&
+           pathString.hasPrefix(initialRootURL.path) {
+            return [url]
+        }
+        return nil
     }
 }
 
@@ -1586,7 +1617,8 @@ private struct RestoreLocationPickerWrapper: View {
                 allowedRootPath: initialRootURL,
                 showCancelButton: true,
                 confirmButtonTitle: "Restore",
-                lockExpandable: true
+                lockExpandable: true,
+                defaultSelectedPaths: getLastRestoreFolderPath()
             ),
             delegate: delegate
         )
@@ -1603,6 +1635,16 @@ private struct RestoreLocationPickerWrapper: View {
                 )
             }
         }
+    }
+    private func getLastRestoreFolderPath() -> [URL]? {
+        guard let pathString = UserDefaults.standard.lastRestoreFolderPath else { return nil }
+        let url = URL(fileURLWithPath: pathString)
+        // Only return if the path still exists and is within the allowed root
+        if FileManager.default.fileExists(atPath: pathString) &&
+           pathString.hasPrefix(initialRootURL.path) {
+            return [url]
+        }
+        return nil
     }
 }
 }
