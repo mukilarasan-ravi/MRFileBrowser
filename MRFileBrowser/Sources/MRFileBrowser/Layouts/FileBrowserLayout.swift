@@ -647,7 +647,8 @@ public struct FileBrowserLayout: View {
                                 handleItemTap(selectedItem)
                             }
                         },
-                        searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil
+                        searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil,
+                        isInLockedFolder: isSearchMode() ? searchUtil.isFileInLockedFolder(for: url, from: searchResults) : false
                     )
                     .frame(width: itemWidth, height: itemWidth)
                 }
@@ -677,7 +678,8 @@ public struct FileBrowserLayout: View {
                             handleItemTap(selectedItem)
                         }
                     },
-                    searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil
+                    searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil,
+                    isInLockedFolder: isSearchMode() ? searchUtil.isFileInLockedFolder(for: url, from: searchResults) : false
                 )
             }
         }

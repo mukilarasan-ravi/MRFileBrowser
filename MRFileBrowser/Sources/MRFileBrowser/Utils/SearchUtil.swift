@@ -14,6 +14,7 @@ struct SearchResult: Identifiable {
     let url: URL
     let relativePath: String
     let lockedParents: [URL] // Array of locked parent folders from root to immediate parent
+    let isInLockedFolder: Bool // Whether this file is inside any locked folder
 
     var displayPath: String {
         return relativePath.isEmpty ? url.lastPathComponent : relativePath + "/" + url.lastPathComponent
@@ -114,7 +115,8 @@ class SearchUtil {
                     results.append(SearchResult(
                         url: item,
                         relativePath: relativePath,
-                        lockedParents: currentLockedParents
+                        lockedParents: currentLockedParents,
+                        isInLockedFolder: !currentLockedParents.isEmpty
                     ))
                 }
 
@@ -165,6 +167,18 @@ class SearchUtil {
         }
 
         return pathComponents.joined(separator: " / ")
+    }
+
+    /// Checks if a file is in a locked folder from search results
+    /// - Parameters:
+    ///   - item: File URL to check
+    ///   - searchResults: Array of current search results
+    /// - Returns: True if file is in locked folder
+    func isFileInLockedFolder(for item: URL, from searchResults: [SearchResult]) -> Bool {
+        guard let searchResult = searchResults.first(where: { $0.url == item }) else {
+            return false
+        }
+        return searchResult.isInLockedFolder
     }
 
     /// Handles search result tap with locked parent folder management

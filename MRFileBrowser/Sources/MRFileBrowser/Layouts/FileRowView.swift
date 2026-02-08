@@ -23,6 +23,7 @@ struct FileRowView: View {
 
     // New property for search context
     var searchContext: String? = nil
+    var isInLockedFolder: Bool = false
 
     private var isLocked: Bool { lockManager.isFileLocked(url.path) }
     private var lockIcon: String {
@@ -84,8 +85,8 @@ private extension FileRowView {
             VStack(alignment: .leading, spacing: 2) {
 
                 if url.isDirectory {
-                    // Check if folder is locked
-                    if lockManager.isFileLocked(url.path) {
+                    // Check if folder is locked OR if folder is in a locked parent (from search results)
+                    if lockManager.isFileLocked(url.path) || isInLockedFolder {
                         // Show folder with lock overlay instead of preview
                         VStack {
                             ZStack {
@@ -110,8 +111,30 @@ private extension FileRowView {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {
-                    FileRowItemView(url: url, size: width * 0.70)
+                    // Check if file is in a locked folder (from search results)
+                    if isInLockedFolder {
+                        // Show file icon with lock overlay instead of preview
+                        VStack {
+                            ZStack {
+                                Image(systemName: "doc.fill")
+                                    .font(.system(size: width * 0.4))
+                                    .foregroundColor(theme.fileColor)
+                                Image(systemName: "lock.shield.fill")
+                                    .font(.system(size: width * 0.15))
+                                    .foregroundColor(theme.textOnPrimaryColor)
+                                    .background(
+                                        Circle()
+                                            .fill(theme.lockColor)
+                                            .frame(width: width * 0.18, height: width * 0.18)
+                                    )
+                                    .offset(x: width * 0.15, y: -width * 0.15)
+                            }
+                        }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        FileRowItemView(url: url, size: width * 0.70)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
 
                 Spacer(minLength: 6)
