@@ -13,8 +13,10 @@ private class MoveFolderPickerDelegate: FolderPickerDelegate {
         self.onCancel = onCancel
     }
 
-    func folderPicker(_ picker: FolderPickerView, didSelectFolder url: URL) {
-        onFolderSelected(url)
+    func folderPicker(_ picker: FolderPickerView, selectItems urls: [URL]) {
+        if let firstUrl = urls.first {
+            onFolderSelected(firstUrl)
+        }
     }
 
     func folderPickerDidCancel(_ picker: FolderPickerView) {
@@ -31,8 +33,10 @@ private class RestoreFolderPickerDelegate: FolderPickerDelegate {
         self.onCancel = onCancel
     }
 
-    func folderPicker(_ picker: FolderPickerView, didSelectFolder url: URL) {
-        onFolderSelected(url)
+    func folderPicker(_ picker: FolderPickerView, selectItems urls: [URL]) {
+        if let firstUrl = urls.first {
+            onFolderSelected(firstUrl)
+        }
     }
 
     func folderPickerDidCancel(_ picker: FolderPickerView) {

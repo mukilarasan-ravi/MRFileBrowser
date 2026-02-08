@@ -3,7 +3,7 @@ import UIKit
 
 //Folder Picker Delegate Protocol
 public protocol FolderPickerDelegate: AnyObject {
-    func folderPicker(_ picker: FolderPickerView, didSelectFolder url: URL)
+    func folderPicker(_ picker: FolderPickerView, selectItems urls: [URL])
     func folderPickerDidCancel(_ picker: FolderPickerView)
 }
 
@@ -24,6 +24,7 @@ public enum LockSelectabilityMode {
 public enum ItemType {
     case folderOnly
     case folderAndFile
+    case fileOnly
 }
 
 //Folder Picker Configuration
@@ -37,6 +38,8 @@ public struct FolderPickerConfiguration {
     public let lockExpandable: Bool
     public let itemType: ItemType
     public let defaultSelectedPath: URL?
+    public let allowMultipleSelection: Bool
+    public let allowedExtensions: Set<String>?
 
     public init(
         title: String = "Choose Folder",
@@ -47,7 +50,9 @@ public struct FolderPickerConfiguration {
         lockSelectabilityMode: LockSelectabilityMode = .selectable,
         lockExpandable: Bool = false,
         itemType: ItemType = .folderOnly,
-        defaultSelectedPath: URL? = nil
+        defaultSelectedPath: URL? = nil,
+        allowMultipleSelection: Bool = false,
+        allowedExtensions: Set<String>? = nil
     ) {
         self.title = title
         self.allowedRootPath = allowedRootPath
@@ -59,6 +64,8 @@ public struct FolderPickerConfiguration {
         self.lockExpandable = lockSelectabilityMode == .nonSelectable ? false : lockExpandable
         self.itemType = itemType
         self.defaultSelectedPath = defaultSelectedPath
+        self.allowMultipleSelection = allowMultipleSelection
+        self.allowedExtensions = allowedExtensions
     }
 }
 
@@ -68,7 +75,7 @@ public struct FolderPickerView: View {
     public weak var delegate: FolderPickerDelegate?
     public let configuration: FolderPickerConfiguration
 
-    @State private var selectedFolder: URL?
+    @State private var selectedItems: Set<URL> = []
     @State private var expandedFolders: Set<URL> = []
     @State private var folderTree: [FolderNode] = []
     @State private var viewHeight: CGFloat = 400
@@ -110,13 +117,13 @@ public struct FolderPickerView: View {
                 Spacer()
 
                 Button(configuration.confirmButtonTitle) {
-                    if let selectedFolder = selectedFolder {
-                        delegate?.folderPicker(self, didSelectFolder: selectedFolder)
+                    if !selectedItems.isEmpty {
+                        delegate?.folderPicker(self, selectItems: Array(selectedItems))
                     }
                 }
-                .foregroundColor(selectedFolder != nil ? theme.primaryColor : theme.primaryTextColor.opacity(0.3))
-                .font(.system(size: 17, weight: selectedFolder != nil ? .bold : .regular))
-                .disabled(selectedFolder == nil)
+                .foregroundColor(hasSelection ? theme.primaryColor : theme.primaryTextColor.opacity(0.3))
+                .font(.system(size: 17, weight: hasSelection ? .bold : .regular))
+                .disabled(!hasSelection)
             }
             .padding()
 
@@ -165,8 +172,31 @@ public struct FolderPickerView: View {
         }
     }
 
+    // to check if any selection exists
+    private var hasSelection: Bool {
+        return !selectedItems.isEmpty
+    }
+
     private func loadFolderTree() {
         folderTree = createFolderTree(at: configuration.allowedRootPath)
+    }
+
+    // Helper method to check if file matches allowed extensions
+    private func isFileAllowed(_ url: URL) -> Bool {
+        // If no extension filter is set, allow all files
+        guard let allowedExtensions = configuration.allowedExtensions else {
+            return true
+        }
+
+        let fileExtension = url.pathExtension.lowercased()
+
+        // Handle files with no extension
+        if fileExtension.isEmpty {
+            return allowedExtensions.contains("filewithnoextension")
+        }
+
+        // Check if extension is in allowed list (with or without dot prefix)
+        return allowedExtensions.contains(fileExtension) || allowedExtensions.contains(".\(fileExtension)")
     }
 
     private func createFolderTree(at rootURL: URL) -> [FolderNode] {
@@ -204,6 +234,27 @@ public struct FolderPickerView: View {
                         }
                         return true
                     }
+                    .filter { file in
+                        // Apply file extension filtering
+                        return isFileAllowed(file)
+                    }
+                    .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+                allItems.append(contentsOf: files)
+                allItems.sort { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+            } else if configuration.itemType == .fileOnly {
+                // For fileOnly, show folders for navigation but also show files
+                let files = contents.filter { !$0.isDirectory }
+                    .filter { file in
+                        // Filter out locked files if display mode is dontShow
+                        if configuration.lockDisplayMode == .dontShow {
+                            return !LockManager.shared.isFileLocked(file.path)
+                        }
+                        return true
+                    }
+                    .filter { file in
+                        // Apply file extension filtering
+                        return isFileAllowed(file)
+                    }
                     .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
                 allItems.append(contentsOf: files)
                 allItems.sort { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
@@ -212,6 +263,9 @@ public struct FolderPickerView: View {
             // Determine if expand button should be shown based on itemType
             let hasExpandableItems: Bool
             if configuration.itemType == .folderAndFile {
+                // Show expand button if there are any items (folders or files)
+                hasExpandableItems = !allItems.isEmpty
+            } else if configuration.itemType == .fileOnly {
                 // Show expand button if there are any items (folders or files)
                 hasExpandableItems = !allItems.isEmpty
             } else {
@@ -242,7 +296,7 @@ public struct FolderPickerView: View {
         // Find the best matching path
         let bestMatch = findBestMatchingPath(for: defaultPath)
         if let matchingPath = bestMatch {
-            selectedFolder = matchingPath
+            selectedItems.insert(matchingPath)
             // Expand folders along the path to make selection visible
             expandPathToFolder(matchingPath)
         }
@@ -256,6 +310,10 @@ public struct FolderPickerView: View {
             // If itemType is folderOnly and target is a file, select parent folder instead
             if configuration.itemType == .folderOnly && !isDirectory.boolValue {
                 return targetPath.deletingLastPathComponent()
+            }
+            // If itemType is fileOnly and target is a folder, don't allow selection
+            if configuration.itemType == .fileOnly && isDirectory.boolValue {
+                return nil
             }
             return targetPath
         }
@@ -325,20 +383,45 @@ public struct FolderPickerView: View {
 
     //Folder Tree Row
     private func folderTreeRow(_ node: FolderNode) -> some View {
-        let isSelected = selectedFolder == node.url
+        let isSelected = selectedItems.contains(node.url)
         let isExpanded = expandedFolders.contains(node.url)
 
         return VStack(alignment: .leading, spacing: 0) {
             // Main item button (folder or file)
             Button {
                 let isLocked = LockManager.shared.isFileLocked(node.url.path)
-                // Check if item can be selected based on lock selectability mode
-                switch configuration.lockSelectabilityMode {
-                case .selectable:
-                    selectedFolder = node.url
-                case .nonSelectable:
-                    if !isLocked {
-                        selectedFolder = node.url
+                let isDirectory = node.url.isDirectory
+
+                // If it's a folder and fileOnly mode, toggle expansion instead of selection
+                if configuration.itemType == .fileOnly && isDirectory {
+                    if expandedFolders.contains(node.url) {
+                        expandedFolders.remove(node.url)
+                    } else {
+                        expandedFolders.insert(node.url)
+                    }
+                } else {
+                    // Handle selection - check lock selectability mode
+                    let shouldSelect: Bool
+                    switch configuration.lockSelectabilityMode {
+                    case .selectable:
+                        shouldSelect = true
+                    case .nonSelectable:
+                        shouldSelect = !isLocked
+                    }
+
+                    if shouldSelect {
+                        if configuration.allowMultipleSelection {
+                            // Toggle selection for multiple selection mode
+                            if selectedItems.contains(node.url) {
+                                selectedItems.remove(node.url)
+                            } else {
+                                selectedItems.insert(node.url)
+                            }
+                        } else {
+                            // Single selection mode - clear previous and select new
+                            selectedItems.removeAll()
+                            selectedItems.insert(node.url)
+                        }
                     }
                 }
             } label: {
@@ -350,12 +433,18 @@ public struct FolderPickerView: View {
                 case .showAsLocked:
                     isLocked
                 }
-                // Determine opacity based on selectability mode
+                // Determine opacity based on selectability mode and itemType
+                let isDirectory = node.url.isDirectory
+
                 let (folderOpacity, textOpacity) = switch configuration.lockSelectabilityMode {
                 case .selectable:
                     (1.0, 1.0)
                 case .nonSelectable:
-                    (isLocked ? 0.5 : 1.0, isLocked ? 0.5 : 1.0)
+                    if isLocked {
+                        (0.5, 0.5)
+                    } else {
+                        (1.0, 1.0)
+                    }
                 }
                 HStack {
                     // Indent for level with max constraint to prevent overflow
@@ -422,8 +511,22 @@ public struct FolderPickerView: View {
 
                     // Selection indicator
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(theme.primaryColor)
+                        if configuration.allowMultipleSelection {
+                            Image(systemName: "checkmark.square.fill")
+                                .foregroundColor(theme.primaryColor)
+                        } else {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(theme.primaryColor)
+                        }
+                    } else if configuration.allowMultipleSelection {
+                        // Only show empty checkbox if not fileOnly mode or if it's a file
+                        let isDirectory = node.url.isDirectory
+                        let shouldShowEmptyCheckbox = !(configuration.itemType == .fileOnly && isDirectory)
+
+                        if shouldShowEmptyCheckbox {
+                            Image(systemName: "square")
+                                .foregroundColor(theme.secondaryTextColor.opacity(0.5))
+                        }
                     }
                 }
                 .padding(.vertical, 8)
@@ -510,8 +613,8 @@ public class FolderPickerViewController: UIViewController {
 
 //FolderPickerDelegate Implementation
 extension FolderPickerViewController: FolderPickerDelegate {
-    public func folderPicker(_ picker: FolderPickerView, didSelectFolder url: URL) {
-        delegate?.folderPicker(picker, didSelectFolder: url)
+    public func folderPicker(_ picker: FolderPickerView, selectItems urls: [URL]) {
+        delegate?.folderPicker(picker, selectItems: urls)
     }
 
     public func folderPickerDidCancel(_ picker: FolderPickerView) {
