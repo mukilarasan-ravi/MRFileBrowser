@@ -47,6 +47,12 @@ public struct ThemeConfiguration {
     //Text color to use on primary/colored backgrounds (typically white for contrast)
     public let textOnPrimaryColor: Color
 
+    //Text color for bottom overlay elements (sort, menu, file info)
+    public let bottomOverlayTextColor: Color
+
+    //Icon color for bottom overlay elements (sort, menu, file info)
+    public let bottomOverlayIconColor: Color
+
     //File Browser Specific Colors
     //Color for folder icons and folder-related elements
     public let folderColor: Color
@@ -86,6 +92,8 @@ public struct ThemeConfiguration {
         primaryTextColor: Color = Color.blue,
         secondaryTextColor: Color = Color.blue.opacity(0.7),
         textOnPrimaryColor: Color = Color.white,
+        bottomOverlayTextColor: Color = Color.black,
+        bottomOverlayIconColor: Color = Color.blue,
         folderColor: Color = Color.blue.opacity(0.7),
         fileColor: Color = Color.blue.opacity(0.7),
         lockColor: Color = Color.blue.opacity(0.7),
@@ -106,6 +114,8 @@ public struct ThemeConfiguration {
         self.primaryTextColor = primaryTextColor
         self.secondaryTextColor = secondaryTextColor
         self.textOnPrimaryColor = textOnPrimaryColor
+        self.bottomOverlayTextColor = bottomOverlayTextColor
+        self.bottomOverlayIconColor = bottomOverlayIconColor
         self.folderColor = folderColor
         self.fileColor = fileColor
         self.lockColor = lockColor
@@ -133,6 +143,8 @@ extension ThemeConfiguration {
         overlayBackgroundColor: Color.black.opacity(0.4),
         primaryTextColor: Color.green,
         secondaryTextColor: Color.green.opacity(0.7),
+        bottomOverlayTextColor: Color.black,
+        bottomOverlayIconColor: Color.green,
         folderColor: Color.green.opacity(0.7),
         fileColor: Color.green.opacity(0.7),
         lockColor: Color.green.opacity(0.7),
@@ -153,6 +165,8 @@ extension ThemeConfiguration {
         overlayBackgroundColor: Color.black.opacity(0.4),
         primaryTextColor: Color.orange,
         secondaryTextColor: Color.orange.opacity(0.7),
+        bottomOverlayTextColor: Color.black,
+        bottomOverlayIconColor: Color.orange,
         folderColor: Color.orange.opacity(0.7),
         fileColor: Color.orange.opacity(0.7),
         lockColor: Color.orange.opacity(0.7),
@@ -177,6 +191,8 @@ extension ThemeConfiguration {
         primaryTextColor: Color.black,
         secondaryTextColor: Color.gray,
         textOnPrimaryColor: Color.white,
+        bottomOverlayTextColor: Color.black,
+        bottomOverlayIconColor: Color.blue,
         folderColor: Color.blue,
         fileColor: Color.gray,
         lockColor: Color.red,

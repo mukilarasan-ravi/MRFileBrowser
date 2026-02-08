@@ -878,12 +878,12 @@ public struct FileBrowserLayout: View {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 18))
-                    .foregroundColor(isDestructive ? theme.errorColor : theme.primaryTextColor)
+                    .foregroundColor(isDestructive ? theme.errorColor : theme.bottomOverlayIconColor)
                     .frame(width: 24, height: 24)
 
                 Text(title)
                     .font(.body)
-                    .foregroundColor(isDestructive ? theme.errorColor : theme.primaryTextColor)
+                    .foregroundColor(isDestructive ? theme.errorColor : theme.bottomOverlayTextColor)
 
                 Spacer()
             }
@@ -937,6 +937,7 @@ public struct FileBrowserLayout: View {
                     HStack {
                         Text("File Server")
                             .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(theme.primaryTextColor)
 
                         Spacer()
 
@@ -1044,7 +1045,7 @@ public struct FileBrowserLayout: View {
                     VStack(spacing: 0) {
                         // Header with close button
                         HStack {
-                            Text("File Information")
+                            Text(fileInfo.isDirectory ? "Folder Information" : "File Information")
                                 .font(.headline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(theme.primaryTextColor)
@@ -1086,7 +1087,7 @@ public struct FileBrowserLayout: View {
 
                                         Text(fileInfo.fileType)
                                             .font(.caption)
-                                            .foregroundColor(theme.secondaryTextColor)
+                                            .foregroundColor(theme.bottomOverlayTextColor)
                                     }
 
                                     Spacer()
@@ -1120,7 +1121,7 @@ public struct FileBrowserLayout: View {
                                         ScrollView(.horizontal, showsIndicators: false) {
                                             Text(getRelativePath(for: fileInfo.path))
                                                 .font(.caption)
-                                                .foregroundColor(theme.secondaryTextColor)
+                                                .foregroundColor(theme.bottomOverlayTextColor)
                                                 .fixedSize(horizontal: true, vertical: false)
                                         }
                                     }
@@ -1151,7 +1152,7 @@ public struct FileBrowserLayout: View {
 
             Text(value)
                 .font(.subheadline)
-                .foregroundColor(theme.secondaryTextColor)
+                .foregroundColor(theme.bottomOverlayTextColor)
 
             Spacer()
         }

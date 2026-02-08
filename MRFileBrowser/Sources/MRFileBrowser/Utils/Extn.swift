@@ -170,71 +170,62 @@ struct AlertPrompt: View {
     let onOK: () -> Void
     let onCancel: () -> Void
 
-    private var okButton: some View {
-        actionButton(okButtonText, backgroundColor: theme.primaryColor, textAlignment: .center) {
-                onOK()
-                isPresented = false
-            }
-        }
-
-        private var cancelButton: some View {
-            actionButton(cancelButtonText, isDestructive: true, textAlignment: .center) {
-                onCancel()
-                isPresented = false
-            }
-        }
-
     var body: some View {
         if isPresented {
             ZStack {
-                theme.overlayBackgroundColor
+                    theme.overlayBackgroundColor
                     .edgesIgnoringSafeArea(.all)
                     .onTapGesture {
                         onCancel()
                         isPresented = false
                     }
 
-                VStack(spacing: 12) {
-                    Text(title)
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(theme.primaryTextColor)
-
-                    if let placeHolder = placeHolder {
-                        TextField(placeHolder, text: $name)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                VStack(spacing: 0) {
+                    VStack(spacing: 16) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundColor(theme.primaryTextColor)
+                            .multilineTextAlignment(.center)
                             .padding(.horizontal)
+
+                        if let placeHolder = placeHolder {
+                            TextField(placeHolder, text: $name)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
                     }
+                    .padding()
 
                     Divider()
 
-                    VStack(spacing: 10) {
-                        okButton
+                    HStack(spacing: 0) {
+                        if !disableCancelButton {
+                            Button(cancelButtonText) {
+                                onCancel()
+                                isPresented = false
+                            }
+                            .foregroundColor(theme.closeButtonColor)
                             .frame(maxWidth: .infinity)
-                            .frame(maxHeight: 30)
-                            .contentShape(Rectangle())
-                    }
-                    if(!disableCancelButton){
-                        Divider()
-                        VStack(spacing: 10) {
-                            cancelButton
-                                .frame(maxWidth: .infinity)
-                                .frame(maxHeight: 30)
-                                .contentShape(Rectangle())
+                            .padding()
+
+                            Divider()
                         }
+
+                        Button(okButtonText) {
+                            onOK()
+                            isPresented = false
+                        }
+                        .foregroundColor(theme.primaryColor)
+                        .frame(maxWidth: .infinity)
+                        .padding()
                     }
+                    .frame(height: 44)
                 }
-                .padding(.vertical, 16)
-                .frame(width: 270)
                 .background(theme.backgroundColor)
-                .cornerRadius(14)
-                .shadow(radius: 20)
+                .cornerRadius(12)
+                .frame(width: 270)
             }
-            .transition(.opacity)
-            .animation(.easeInOut)
         }
     }
-
 }
 
 public struct FolderNode {
@@ -281,17 +272,17 @@ struct UIHelpers {
             HStack(spacing: 12) {
                 Image(systemName: option.icon)
                     .font(.system(size: 18))
-                    .foregroundColor(theme.primaryTextColor)
+                    .foregroundColor(theme.bottomOverlayIconColor)
                     .frame(width: 24, height: 24)
 
                 Text(option.displayName)
                     .font(.body)
-                    .foregroundColor(theme.primaryTextColor)
+                    .foregroundColor(theme.bottomOverlayTextColor)
 
                 Spacer()
                 if menuCoordinator.sortBy == option {
                     Text(menuCoordinator.sortOrder == .ascending ? "↑" : "↓")
-                        .foregroundColor(theme.primaryColor)
+                        .foregroundColor(theme.bottomOverlayIconColor)
                 }
             }
             .padding(.vertical, 8)
