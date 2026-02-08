@@ -37,7 +37,7 @@ public struct FolderPickerConfiguration {
     public let lockSelectabilityMode: LockSelectabilityMode
     public let lockExpandable: Bool
     public let itemType: ItemType
-    public let defaultSelectedPath: URL?
+    public let defaultSelectedPaths: [URL]?
     public let allowMultipleSelection: Bool
     public let allowedExtensions: Set<String>?
 
@@ -50,7 +50,7 @@ public struct FolderPickerConfiguration {
         lockSelectabilityMode: LockSelectabilityMode = .selectable,
         lockExpandable: Bool = false,
         itemType: ItemType = .folderOnly,
-        defaultSelectedPath: URL? = nil,
+        defaultSelectedPaths: [URL]? = nil,
         allowMultipleSelection: Bool = false,
         allowedExtensions: Set<String>? = nil
     ) {
@@ -63,7 +63,7 @@ public struct FolderPickerConfiguration {
         // Force lockExpandable to false when lockSelectabilityMode is nonSelectable
         self.lockExpandable = lockSelectabilityMode == .nonSelectable ? false : lockExpandable
         self.itemType = itemType
-        self.defaultSelectedPath = defaultSelectedPath
+        self.defaultSelectedPaths = defaultSelectedPaths
         self.allowMultipleSelection = allowMultipleSelection
         self.allowedExtensions = allowedExtensions
     }
@@ -292,13 +292,34 @@ public struct FolderPickerView: View {
         }
     }
     private func setDefaultSelection() {
-        guard let defaultPath = configuration.defaultSelectedPath else { return }
-        // Find the best matching path
-        let bestMatch = findBestMatchingPath(for: defaultPath)
-        if let matchingPath = bestMatch {
-            selectedItems.insert(matchingPath)
-            // Expand folders along the path to make selection visible
-            expandPathToFolder(matchingPath)
+        guard let defaultPaths = configuration.defaultSelectedPaths, !defaultPaths.isEmpty else { return }
+
+        var validPaths: [URL] = []
+        var pathsToExpand: Set<URL> = []
+
+        for defaultPath in defaultPaths {
+            if let matchingPath = findBestMatchingPath(for: defaultPath) {
+                validPaths.append(matchingPath)
+                pathsToExpand.insert(matchingPath)
+            }
+        }
+
+        // Apply selections based on mode
+        if configuration.allowMultipleSelection {
+            // Add all valid paths for multiple selection
+            for path in validPaths {
+                selectedItems.insert(path)
+            }
+        } else {
+            // Use the first valid path for single selection
+            if let firstPath = validPaths.first {
+                selectedItems.insert(firstPath)
+            }
+        }
+
+        // Expand paths to make selections visible
+        for path in pathsToExpand {
+            expandPathToFolder(path)
         }
     }
     private func findBestMatchingPath(for targetPath: URL) -> URL? {
@@ -307,17 +328,37 @@ public struct FolderPickerView: View {
            targetPath.path.hasPrefix(configuration.allowedRootPath.path) {
             var isDirectory: ObjCBool = false
             FileManager.default.fileExists(atPath: targetPath.path, isDirectory: &isDirectory)
+
             // If itemType is folderOnly and target is a file, select parent folder instead
             if configuration.itemType == .folderOnly && !isDirectory.boolValue {
                 return targetPath.deletingLastPathComponent()
             }
-            // If itemType is fileOnly and target is a folder, don't allow selection
+
+            // If itemType is fileOnly and target is a folder, reject it completely
             if configuration.itemType == .fileOnly && isDirectory.boolValue {
                 return nil
             }
+            // For files, check if they match the allowed extensions
+            if !isDirectory.boolValue {
+                if !isFileAllowed(targetPath) {
+                    // File doesn't match extension filter, try parent folder if folderAndFile mode
+                    if configuration.itemType == .folderAndFile {
+                        return targetPath.deletingLastPathComponent()
+                    } else {
+                        return nil
+                    }
+                }
+            }
             return targetPath
         }
-        // If exact match not found, find the longest matching parent path
+
+        // If exact match not found, only try parent path fallback for appropriate item types
+        if configuration.itemType == .fileOnly {
+            // In fileOnly mode, don't fallback to parent folders if target file doesn't exist
+            return nil
+        }
+
+        // For other modes, find the longest matching parent path
         return findLongestMatchingParent(for: targetPath)
     }
     private func findNodeByPath(_ targetPath: URL, in nodes: [FolderNode]) -> FolderNode? {
