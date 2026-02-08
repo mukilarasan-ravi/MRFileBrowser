@@ -64,6 +64,8 @@ public struct FileBrowserLayout: View {
     @State private var previewItem: PreviewItem? = nil // For full-screen preview
     @State private var showServerStatus = false
     @State private var showCustomServerView = false
+    @State private var showServerStopConfirmation = false
+    @State private var serverStopAlertText = ""
 
     @ObservedObject private var menuCoordinator = MenuCoordinator()
     @ObservedObject private var serverManager: FileServerManager
@@ -307,6 +309,23 @@ public struct FileBrowserLayout: View {
                     .transition(AnyTransition.opacity.combined(with: AnyTransition.move(edge: .bottom)))
             }
 
+            // Server Stop Confirmation
+            if showServerStopConfirmation {
+                AlertPrompt(
+                    title: "Server is running. Do you want to stop the server and close the app?",
+                    okButtonText: "Stop & Close",
+                    cancelButtonText: "Cancel",
+                    name: $serverStopAlertText,
+                    isPresented: $showServerStopConfirmation
+                ) {
+                    // Stop server and close
+                    serverManager.stopServer()
+                    presentationMode.wrappedValue.dismiss()
+                } onCancel: {
+                    // Just dismiss the alert, stay in app
+                }
+            }
+
             // Toast notifications are now handled by the static Toast utility via the .toast() modifier
         }
         .toast()
@@ -491,9 +510,13 @@ public struct FileBrowserLayout: View {
     }
 
     private func goBack() {
-//        debugPrint(folderURL.deletingLastPathComponent())
-//        selectedFolder = folderURL.deletingLastPathComponent();
-        presentationMode.wrappedValue.dismiss()
+        // Check if this is the root view and server is running
+        if isRoot && serverManager.isServerRunning {
+            showServerStopConfirmation = true
+        } else {
+            // Normal back navigation
+            presentationMode.wrappedValue.dismiss()
+        }
     }
 
     // MARK: - Search Bar
