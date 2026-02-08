@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import QuickLook
 import Foundation
+import Combine
 
 private class MoveFolderPickerDelegate: FolderPickerDelegate {
     private let onFolderSelected: (URL) -> Void
@@ -50,6 +51,7 @@ public struct FileBrowserLayout: View {
     public let folderURL: URL
     let isRoot: Bool
     private let initialRootURL: URL //Store the initial folder
+    private let searchUtil = SearchUtil.shared
 
     @Binding var titleName: String
     @Binding var isGridView: Bool
@@ -58,6 +60,8 @@ public struct FileBrowserLayout: View {
     @State private var items: [URL] = []
     @State private var showSearchBar = false
     @State private var searchText = ""
+    @State private var searchResults: [SearchResult] = []
+    @State private var isSearching = false
     @State private var refreshKey = UUID() // For forcing view updates when sorting changes
 
     @State private var selectedFolder: URL? = nil
@@ -146,19 +150,50 @@ public struct FileBrowserLayout: View {
                 Group {
                     let currentItems = filteredItems()
 
-                    if items.isEmpty || currentItems.isEmpty {
-                        Spacer()
-                            Image(systemName: "folder") // SF Symbol for folder
+                    if isSearching {
+                        VStack {
+                            Spacer()
+                            if #available(iOS 14.0, *) {
+                                ProgressView("Searching...")
+                                    .foregroundColor(theme.primaryTextColor)
+                            } else {
+                                HStack {
+                                    Text("Searching...")
+                                        .foregroundColor(theme.primaryTextColor)
+                                    Spacer()
+                                }
+                            }
+                            Spacer()
+                        }
+                    } else if items.isEmpty || currentItems.isEmpty {
+                        VStack {
+                            Spacer()
+                            // Inline empty state icon logic
+                            Image(systemName: {
+                                if !searchText.isEmpty {
+                                    return "magnifyingglass"
+                                } else {
+                                    return "folder"
+                                }
+                            }())
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 50, height: 50) // Adjust size as needed
+                                .frame(width: 50, height: 50)
                                 .foregroundColor(theme.folderColor)
 
-                            Text("Folder is Empty")
+                            // Inline empty state message logic
+                            Text({
+                                if !searchText.isEmpty {
+                                    return "No results found"
+                                } else {
+                                    return "Folder is Empty"
+                                }
+                            }())
                                 .foregroundColor(theme.secondaryTextColor)
                                 .font(.system(size: 20, weight: .regular))
 
                             Spacer()
+                        }
 
                     } else if isGridView, #available(iOS 14.0, *) {
                         ScrollView {
@@ -201,6 +236,7 @@ public struct FileBrowserLayout: View {
                     url: previewItem.url,
                     onClose:{
                         self.previewItem = nil
+                        // Don't reset search results when closing preview
                     }, title: previewItem.url.displayName
                 )
             }
@@ -326,10 +362,27 @@ public struct FileBrowserLayout: View {
                 }
             }
 
+            // Search Unlock Confirmation
+            if menuCoordinator.showSearchUnlockConfirmation {
+                AlertPrompt(
+                    title: menuCoordinator.searchUnlockTitle,
+                    okButtonText: "Unlock",
+                    cancelButtonText: "Cancel",
+                    disableCancelButton: false,
+                    name: $serverStopAlertText,
+                    isPresented: $menuCoordinator.showSearchUnlockConfirmation,
+                    onOK: {
+                        menuCoordinator.executeSearchUnlockAction()
+                    },
+                    onCancel: {
+                        menuCoordinator.showSearchUnlockConfirmation = false
+                    }
+                )
+            }
+
             // Toast notifications are now handled by the static Toast utility via the .toast() modifier
         }
         .toast()
-        .onAppear(perform: loadItems)
         .navigationBarBackButtonHidden(true)
     }
     private func doRename(oldName: String, newName: String, in folderURL: URL){
@@ -493,6 +546,17 @@ public struct FileBrowserLayout: View {
             menuCoordinator.shouldShowErrorMessage = true
         }
     }
+    private func clearSearchText() {
+        searchText = ""
+        searchResults = []
+        isSearching = false
+    }
+    private func closeSearch() {
+        searchText = ""
+        searchResults = []
+        isSearching = false
+        showSearchBar = false
+    }
     // MARK: - Destination View
     @ViewBuilder
     private func destinationView() -> some View {
@@ -521,11 +585,37 @@ public struct FileBrowserLayout: View {
 
     // MARK: - Search Bar
     private var searchBar: some View {
-        TextField("Search files...", text: $searchText)
-            .padding(10)
-            .background(theme.secondaryBackgroundColor)
-            .cornerRadius(8)
-            .padding(.horizontal, 8)
+        HStack {
+            TextField("Search files...", text: $searchText)
+                .padding(10)
+                .background(theme.secondaryBackgroundColor)
+                .cornerRadius(8)
+                .modifier(SearchTextChangeModifier(searchText: searchText, searchUtil: searchUtil, folderURL: folderURL) { results, isSearching in
+                    self.searchResults = results
+                    self.isSearching = isSearching
+                })
+            // Clear search text button
+            Button(action: {
+                clearSearchText()
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(theme.secondaryTextColor)
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(PlainButtonStyle())
+            // Stop/Close search button
+            Button(action: {
+                closeSearch()
+            }) {
+                Image(systemName: "rectangle.portrait.and.arrow.right.fill")
+                    .foregroundColor(theme.secondaryTextColor)
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.trailing, 8)
+        }
+        .padding(.horizontal, 8)
+        .background(theme.backgroundColor)
     }
 
     // MARK: - Grid View (iOS 14+)
@@ -548,7 +638,16 @@ public struct FileBrowserLayout: View {
                         url: url,
                         layout: .grid(width: itemWidth),
                         menuCoordinator: menuCoordinator,
-                        onTap: handleItemTap
+                        onTap: { selectedItem in
+                            if isSearchMode() {
+                                searchUtil.handleSearchResultTap(selectedItem, from: searchResults, menuCoordinator: menuCoordinator) { item in
+                                    self.handleItemTap(item)
+                                }
+                            } else {
+                                handleItemTap(selectedItem)
+                            }
+                        },
+                        searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil
                     )
                     .frame(width: itemWidth, height: itemWidth)
                 }
@@ -561,7 +660,7 @@ public struct FileBrowserLayout: View {
         }
     }
 
-    // MARK: - List View
+    // MARK: - List View (Updated to handle search and regular modes)
     private var fileListView: some View {
         VStack(spacing: 0) {
             ForEach(filteredItems(), id: \.self) { url in
@@ -569,7 +668,16 @@ public struct FileBrowserLayout: View {
                     url: url,
                     layout: .list(thumbnailSize: 44),
                     menuCoordinator: menuCoordinator,
-                    onTap: handleItemTap
+                    onTap: { selectedItem in
+                        if isSearchMode() {
+                            searchUtil.handleSearchResultTap(selectedItem, from: searchResults, menuCoordinator: menuCoordinator) { item in
+                                self.handleItemTap(item)
+                            }
+                        } else {
+                            handleItemTap(selectedItem)
+                        }
+                    },
+                    searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil
                 )
             }
         }
@@ -685,11 +793,22 @@ public struct FileBrowserLayout: View {
         )) ?? []
     }
 
+    private func isSearchMode() -> Bool {
+        return !searchText.isEmpty
+    }
+
+
     private func filteredItems() -> [URL] {
-        let filtered = searchText.isEmpty ? items : items.filter {
-            $0.lastPathComponent.localizedCaseInsensitiveContains(searchText)
+        if !searchText.isEmpty {
+            // Return search results
+            return searchResults.map { $0.url }
+        } else {
+            // Return current folder items
+            let filtered = searchText.isEmpty ? items : items.filter {
+                $0.lastPathComponent.localizedCaseInsensitiveContains(searchText)
+            }
+            return sortItems(filtered)
         }
-        return sortItems(filtered)
     }
     private func sortItems(_ items: [URL]) -> [URL] {
         return items.sorted { (url1, url2) in
@@ -1311,7 +1430,6 @@ public struct FileBrowserLayout: View {
     }
 
     // The hardcoded undoToastView has been replaced by the reusable Toast utility system
-}
 
 // MARK: - Full Screen QuickLook Preview
 struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
@@ -1480,4 +1598,5 @@ private struct RestoreLocationPickerWrapper: View {
             }
         }
     }
+}
 }

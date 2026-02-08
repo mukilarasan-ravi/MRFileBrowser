@@ -21,6 +21,9 @@ struct FileRowView: View {
     @Environment(\.themeConfiguration) private var theme
     var onTap: ((URL) -> Void)? = nil
 
+    // New property for search context
+    var searchContext: String? = nil
+
     private var isLocked: Bool { lockManager.isFileLocked(url.path) }
     private var lockIcon: String {
         lockManager.hasCustomPIN(url.path) ? "lock.fill" : "faceid"
@@ -121,6 +124,16 @@ private extension FileRowView {
                     .padding(.horizontal, 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Show search context path if available in grid view
+                if let searchContext = searchContext, !searchContext.isEmpty {
+                    Text(searchContext)
+                        .foregroundColor(theme.secondaryTextColor)
+                        .font(.system(size: 8, weight: .regular))
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 Text(fileInfoDetails)
                     .foregroundColor(theme.secondaryTextColor)
                     .font(.system(size: 10))
@@ -178,6 +191,15 @@ private extension FileRowView {
                     .foregroundColor(theme.primaryTextColor)
                     .font(.system(size: 15, weight: .medium))
                     .lineLimit(1)
+
+                // Show search context path if available
+                if let searchContext = searchContext, !searchContext.isEmpty {
+                    Text(searchContext)
+                        .foregroundColor(theme.secondaryTextColor.opacity(0.8))
+                        .font(.system(size: 11, weight: .regular))
+                        .lineLimit(1)
+                        .padding(.top, -2)
+                }
 
                 Text(fileInfoDetails)
                     .foregroundColor(theme.secondaryTextColor)

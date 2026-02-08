@@ -10,7 +10,7 @@ import Combine
 
 enum SortOption: CaseIterable {
     case name, dateModified, size
-    
+
     var displayName: String {
         switch self {
         case .name: return "Name"
@@ -18,7 +18,7 @@ enum SortOption: CaseIterable {
         case .size: return "Size"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .name: return "character"
@@ -30,14 +30,14 @@ enum SortOption: CaseIterable {
 
 enum SortOrder {
     case ascending, descending
-    
+
     var displayName: String {
         switch self {
         case .ascending: return "Ascending"
         case .descending: return "Descending"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .ascending: return "arrow.up"
@@ -90,6 +90,11 @@ final class MenuCoordinator: ObservableObject {
     // Pending action to execute after unlock
     private var pendingAction: (() -> Void)? = nil
 
+    // Search unlock confirmation
+    @Published var showSearchUnlockConfirmation: Bool = false
+    @Published var searchUnlockTitle: String = ""
+    @Published var searchUnlockAction: (() -> Void)? = nil
+
     func showBottomSheet(for file: URL) {
         selectedFile = file
         showSortView = false // Ensure sort view is hidden when showing file operations
@@ -135,6 +140,11 @@ final class MenuCoordinator: ObservableObject {
         // Reset restore state
         restoreSourceFile = nil
         selectedRestoreDestination = nil
+
+        // Reset search unlock state
+        showSearchUnlockConfirmation = false
+        searchUnlockTitle = ""
+        searchUnlockAction = nil
     }
 
     func prepareMove(for file: URL, availableFolders: [URL]) {
@@ -225,6 +235,18 @@ final class MenuCoordinator: ObservableObject {
     }
     var hasPendingAction: Bool {
         return pendingAction != nil
+    }
+
+    func showSearchUnlockAlert(message: String, unlockAction: @escaping () -> Void) {
+        searchUnlockTitle = message
+        searchUnlockAction = unlockAction
+        showSearchUnlockConfirmation = true
+    }
+
+    func executeSearchUnlockAction() {
+        searchUnlockAction?()
+        showSearchUnlockConfirmation = false
+        searchUnlockAction = nil
     }
     //Restore Methods
     func showRestoreLocationPicker(for file: URL, initialRootURL: URL) {
