@@ -48,13 +48,12 @@ struct FileRowItemView: View {
                         .clipped()
                 } else {
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(red: 0.9, green: 0.95, blue: 1.0))
                         .frame(width: size, height: size) // enforce square
                         .overlay(
                             Image(systemName: url.hasDirectoryPath ? "folder.fill" : url.pathExtension.fileTypeIcon)
                                 .font(.system(size: 24))
-                                .foregroundColor(Color.blue.opacity(0.7))
-                        )
+                                .foregroundColor(url.hasDirectoryPath ? theme.folderColor : theme.fileColor)
+                        ).foregroundColor(theme.primaryColor)
                 }
             }
         }
