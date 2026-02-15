@@ -78,8 +78,11 @@ public struct FileBrowserLayout: View {
     private let searchUtil = SearchUtil.shared
 
     @Binding var titleName: String
-    @Binding var isGridView: Bool
-    @Binding var columnsCount: Int
+
+    private let viewConfiguration: ViewConfiguration
+
+    @State private var isGridView: Bool
+    @State private var columnsCount: Int
 
     @State private var items: [URL] = []
     @State private var showSearchBar = false
@@ -108,28 +111,64 @@ public struct FileBrowserLayout: View {
     public init(
         folderURL: URL,
         titleName: Binding<String>,
-        isGridView: Binding<Bool>,
-        columnsCount: Binding<Int>,
         isRoot: Bool = true,
         initialRootURL: URL? = nil,
-        serverConfiguration: ServerConfiguration = .default
+        serverConfiguration: ServerConfiguration = .default,
+        viewConfiguration: ViewConfiguration = .default
     ) {
         self.folderURL = folderURL
         self.isRoot = isRoot
         self.initialRootURL = initialRootURL ?? folderURL // Use provided root or current folder as root
         _titleName = titleName
-        _isGridView = isGridView
-        _columnsCount = columnsCount
         self.serverConfiguration = serverConfiguration
+        self.viewConfiguration = viewConfiguration
         self.serverManager = FileServerManager(serverConfiguration: serverConfiguration)
+
+        // Initialize view state based on configuration
+        switch viewConfiguration.viewMode {
+        case .listView:
+            self._isGridView = State(initialValue: false)
+        case .gridView:
+            self._isGridView = State(initialValue: true)
+        case .both:
+            self._isGridView = State(initialValue: viewConfiguration.startsInGridView)
+        }
+
+        self._columnsCount = State(initialValue: viewConfiguration.gridConfiguration.columnsCount)
     }
 
     // MARK: - Body
     public var body: some View {
-        FileBrowserContent()// Created new method to wrap the main content for better readability and to apply theme background
-            .toast()
-            .onAppear(perform: loadItems)
-            .navigationBarBackButtonHidden(true)
+        if #available(iOS 14.0, *) {
+            FileBrowserContent()
+                .toast()
+                .onAppear(perform: loadItems)
+                .onChange(of: columnsCount) { newValue in
+                    // Ensure columnsCount stays within configured bounds
+                    let clampedValue = viewConfiguration.gridConfiguration.clampColumnCount(newValue)
+                    if clampedValue != newValue {
+                        columnsCount = clampedValue
+                    }
+                }
+                .onChange(of: isGridView) { newValue in
+                    // Ensure view mode respects configuration
+                    switch viewConfiguration.viewMode {
+                    case .listView:
+                        if newValue { isGridView = false }
+                    case .gridView:
+                        if !newValue { isGridView = true }
+                    case .both:
+                        // Allow any value for .both mode
+                        break
+                    }
+                }
+                .navigationBarBackButtonHidden(true)
+        } else {
+            FileBrowserContent()
+                .toast()
+                .onAppear(perform: loadItems)
+                .navigationBarBackButtonHidden(true)
+        }
     }
 
     // Content View (using environment theme)
@@ -161,6 +200,7 @@ public struct FileBrowserLayout: View {
                     isGridView: $isGridView,
                     columnsCount: $columnsCount,
                     showsSearch: !folderURL.isTrashFolder, // disable search in trash folder
+                    viewConfiguration: viewConfiguration,
                     onBack: goBack
                 )
 
@@ -258,6 +298,7 @@ public struct FileBrowserLayout: View {
             if let previewItem = previewItem {
                 FullScreenQuickLookPreview(
                     url: previewItem.url,
+                    viewConfiguration: viewConfiguration,
                     onClose:{
                         self.previewItem = nil
                         // Don't reset search results when closing preview
@@ -588,11 +629,10 @@ public struct FileBrowserLayout: View {
             FileBrowserLayout(
                 folderURL: folder,
                 titleName: .constant(folder.displayName),
-                isGridView: $isGridView,
-                columnsCount: $columnsCount,
                 isRoot: false,
                 initialRootURL: initialRootURL,
-                serverConfiguration: serverConfiguration
+                serverConfiguration: serverConfiguration,
+                viewConfiguration: viewConfiguration
             )
         }
     }
@@ -804,8 +844,12 @@ public struct FileBrowserLayout: View {
     private func gridMagnificationGesture() -> some Gesture {
         MagnificationGesture()
             .onEnded { scale in
-                if scale > 1.05 { columnsCount = max(2, columnsCount - 1) }
-                else if scale < 0.95 { columnsCount = min(4, columnsCount + 1) }
+                if scale > 1.05 {
+                    columnsCount = max(viewConfiguration.gridConfiguration.minColumnsCount, columnsCount - 1)
+                }
+                else if scale < 0.95 {
+                    columnsCount = min(viewConfiguration.gridConfiguration.maxColumnsCount, columnsCount + 1)
+                }
             }
     }
 
@@ -1461,6 +1505,7 @@ public struct FileBrowserLayout: View {
 struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
 
     let url: URL
+    let viewConfiguration: ViewConfiguration
     let onClose: () -> Void
     let title: String
 
@@ -1491,7 +1536,7 @@ struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
                 isGridView: .constant(false),
                 columnsCount: .constant(2),
                 showsSearch: false,
-                showsGridToggle: false,
+                viewConfiguration: viewConfiguration,
                 onBack: {
                     context.coordinator.close()
                 }

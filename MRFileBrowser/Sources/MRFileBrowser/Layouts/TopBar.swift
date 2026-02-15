@@ -10,7 +10,7 @@ public struct TopBar: View {
     @Binding var columnsCount: Int
 
     let showsSearch: Bool
-    let showsGridToggle: Bool
+    let viewConfiguration: ViewConfiguration
     @Environment(\.themeConfiguration) private var theme
 
     public var onBack: () -> Void
@@ -22,7 +22,7 @@ public struct TopBar: View {
         isGridView: Binding<Bool> = .constant(false),
         columnsCount: Binding<Int> = .constant(2),
         showsSearch: Bool = true,
-        showsGridToggle: Bool = true,
+        viewConfiguration: ViewConfiguration = .default,
         onBack: @escaping () -> Void
     ) {
         self.isRoot = isRoot
@@ -31,7 +31,7 @@ public struct TopBar: View {
         _isGridView = isGridView
         _columnsCount = columnsCount
         self.showsSearch = showsSearch
-        self.showsGridToggle = showsGridToggle
+        self.viewConfiguration = viewConfiguration
         self.onBack = onBack
     }
 
@@ -58,7 +58,7 @@ public struct TopBar: View {
             Spacer()
 
             // GRID TOGGLE
-            if showsGridToggle, #available(iOS 14.0, *) {
+            if viewConfiguration.allowsViewModeSwitch, #available(iOS 14.0, *) {
                 Button {
                     isGridView.toggle()
                 } label: {

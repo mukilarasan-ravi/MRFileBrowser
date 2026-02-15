@@ -7,19 +7,20 @@ public struct FileBrowserRootView: View {
     @Binding var titleName: String
     private let serverConfiguration: ServerConfiguration
     private let themeConfiguration: ThemeConfiguration
-    @State private var isGridView = true
-    @State private var columnsCount = 2
+    private let viewConfiguration: ViewConfiguration
 
     // MARK: - Public initializer
     public init(
         folderURL: URL,
         titleName: Binding<String>,
         serverConfiguration: ServerConfiguration = .default,
-        themeConfiguration: ThemeConfiguration = .blue
+        themeConfiguration: ThemeConfiguration = .blue,
+        viewConfiguration: ViewConfiguration = .default
     ) {
         self.folderURL = folderURL
         self.serverConfiguration = serverConfiguration
         self.themeConfiguration = themeConfiguration
+        self.viewConfiguration = viewConfiguration
         _titleName = titleName
     }
 
@@ -28,9 +29,8 @@ public struct FileBrowserRootView: View {
             FileBrowserLayout(
                         folderURL: folderURL,
                         titleName: $titleName,
-                        isGridView: $isGridView,
-                        columnsCount: $columnsCount,
                         serverConfiguration : serverConfiguration,
+                        viewConfiguration: viewConfiguration
                     )
 
             .navigationBarBackButtonHidden(true)
