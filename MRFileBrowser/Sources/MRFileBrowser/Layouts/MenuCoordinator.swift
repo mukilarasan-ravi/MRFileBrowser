@@ -78,6 +78,10 @@ final class MenuCoordinator: ObservableObject {
     @Published var pendingLockFile: URL? = nil
     @Published var isPermanentUnlock: Bool = false // Add this property
 
+    //File share state
+    @Published var showShareSheet = false
+    @Published var shareItems: [Any] = []
+
     // New Folder Properties
     @Published var showNewFolderView: Bool = false
     @Published var newFolderName: String = ""
@@ -137,6 +141,10 @@ final class MenuCoordinator: ObservableObject {
         expandedFolders = []
         folderTree = []
         fileInfo = nil
+
+        // Rest file share
+        showShareSheet = false
+        shareItems = []
         // Reset restore state
         restoreSourceFile = nil
         selectedRestoreDestination = nil
