@@ -719,7 +719,8 @@ public struct FileBrowserLayout: View {
                             }
                         },
                         searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil,
-                        isInLockedFolder: isSearchMode() ? searchUtil.isFileInLockedFolder(for: url, from: searchResults) : false
+                        isInLockedFolder: isSearchMode() ? searchUtil.isFileInLockedFolder(for: url, from: searchResults) : false,
+                        viewConfiguration: viewConfiguration
                     )
                     .frame(width: itemWidth, height: itemWidth)
                 }
@@ -750,7 +751,8 @@ public struct FileBrowserLayout: View {
                         }
                     },
                     searchContext: isSearchMode() ? searchUtil.getSearchContext(for: url, from: searchResults) : nil,
-                    isInLockedFolder: isSearchMode() ? searchUtil.isFileInLockedFolder(for: url, from: searchResults) : false
+                    isInLockedFolder: isSearchMode() ? searchUtil.isFileInLockedFolder(for: url, from: searchResults) : false,
+                    viewConfiguration: viewConfiguration
                 )
             }
         }
