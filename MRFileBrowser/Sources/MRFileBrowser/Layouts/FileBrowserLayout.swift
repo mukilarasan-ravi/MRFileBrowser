@@ -163,11 +163,18 @@ public struct FileBrowserLayout: View {
                     }
                 }
                 .navigationBarBackButtonHidden(true)
+                .sheet(isPresented: $menuCoordinator.showShareSheet) {
+                    ShareSheet(items: menuCoordinator.shareItems)
+                }
+
         } else {
             FileBrowserContent()
                 .toast()
                 .onAppear(perform: loadItems)
                 .navigationBarBackButtonHidden(true)
+                .sheet(isPresented: $menuCoordinator.showShareSheet) {
+                    ShareSheet(items: menuCoordinator.shareItems)
+                }
         }
     }
 
@@ -1058,7 +1065,8 @@ public struct FileBrowserLayout: View {
                                 actionButton("Share", icon: "square.and.arrow.up") {
                                     menuCoordinator.hideBottomSheet()
                                     performActionWithLockCheck {
-                                        print("Share \(selectedFile.lastPathComponent)")
+                                        menuCoordinator.shareItems = [selectedFile]
+                                        menuCoordinator.showShareSheet = true
                                     }
                                 }
                             }
@@ -1500,6 +1508,16 @@ public struct FileBrowserLayout: View {
     }
 
     // The hardcoded undoToastView has been replaced by the reusable Toast utility system
+// MARK: - To show Share option
+struct ShareSheet: UIViewControllerRepresentable {
+    var items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
 
 // MARK: - Full Screen QuickLook Preview
 struct FullScreenQuickLookPreview: UIViewControllerRepresentable {
