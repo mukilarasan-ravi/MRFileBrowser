@@ -67,12 +67,9 @@ For more details, see [FileBrowserRootView Documentation](Docs/Components/FileBr
 
 ## FileBrowserRootView Demonstrations
 
-<div align="center">
-<video width="600" controls>
-  <source src="https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FileBrowserDemo.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-</div>
+🎥 **[Watch FileBrowser Demo Video](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/tree/main/Docs/recordings/FileBrowserDemo.mp4)**
+
+*Click the link above to download and view the demonstration video*
 
 ## FolderPickerView Basic config
 
@@ -130,26 +127,10 @@ present(picker, animated: true)
 
 ### FolderPickerView Demonstrations
 
-<table>
-<tr>
-<td align="center"><strong>Demo 1</strong></td>
-<td align="center"><strong>Demo 2</strong></td>
-</tr>
-<tr>
-<td>
-<video width="300" controls>
-  <source src="https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_1.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-</td>
-<td>
-<video width="300" controls>
-  <source src="https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_2.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-</td>
-</tr>
-</table>
+| Demo Video 1 | Demo Video 2 |
+|--------------|---------------|
+| 🎥 **[Folder & File Picker Demo 1](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_1.mp4)** | 🎥 **[Folder & File Picker Demo 2](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_2.mp4)** |
+| *Single selection demo* | *Multi selection demo* |
 
 For more details, see [FolderPickerView Documentation](Docs/Components/FolderPickerView.md).
 
