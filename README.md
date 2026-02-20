@@ -37,6 +37,32 @@ struct ContentView: View {
 }
 ```
 
+## Screenshots
+
+### Theme Customization
+
+| Blue Theme | Green Theme |
+|------------|-------------|
+| ![Blue Theme](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/BlueTheme.png) | ![Green Theme](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/GreenTheme.png) |
+
+### View Modes
+
+| List View | Grid View |
+|-----------|-----------|
+| ![List View](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/ListView.png) | ![Grid View](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/GridView.png) |
+
+### Search Functionality
+
+| List Search | Grid Search |
+|-------------|-------------|
+| ![Search List View](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/Search_ListView.png) | ![Search Grid View](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/Search_GridView.png) |
+
+### Sorting Options
+
+| Name Ascending | Name Descending |
+|----------------|-----------------|
+| ![Sort Name Ascending](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/SortNameAsc.png) | ![Sort Name Descending](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/SortNameDsc.png) |
+
 For more details, see [FileBrowserRootView Documentation](Docs/Components/FileBrowserRootView.md).
 
 ## FolderPickerView Basic config
@@ -74,6 +100,24 @@ picker.modalPresentationStyle = .overFullScreen
 picker.modalTransitionStyle = .crossDissolve
 present(picker, animated: true)
 ```
+
+## FolderPickerView Screenshots
+
+### Selection Modes
+
+| Single Selection | Multi Selection |
+|------------------|-----------------|
+| ![Folder Single Selection](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/FolderOnly_SingleSelection.png) | ![File Multi Selection](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/FileOnly_MultiSelection.png) |
+
+### Content Types
+
+| Files Only | Files & Folders |
+|------------|-----------------|
+| ![File Single Selection](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/FileOnly_SingleSelection1.png) | ![Files and Folders Multi Selection](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/FileAndFolder_MultiSelection.png) |
+
+### Additional Examples
+
+![File Selection Example](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/FileOnly_SingleSelection2.png)
 
 For more details, see [FolderPickerView Documentation](Docs/Components/FolderPickerView.md).
 
