@@ -65,6 +65,15 @@ struct ContentView: View {
 
 For more details, see [FileBrowserRootView Documentation](Docs/Components/FileBrowserRootView.md).
 
+## FileBrowserRootView Demonstrations
+
+<div align="center">
+<video width="600" controls>
+  <source src="https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FileBrowserDemo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+</div>
+
 ## FolderPickerView Basic config
 
 ```swift
@@ -118,6 +127,29 @@ present(picker, animated: true)
 ### Additional Examples
 
 ![File Selection Example](https://raw.githubusercontent.com/mukilarasan-ravi/MRFileBrowserDemo/refs/heads/main/Docs/screenshots/FileOnly_SingleSelection2.png)
+
+### FolderPickerView Demonstrations
+
+<table>
+<tr>
+<td align="center"><strong>Demo 1</strong></td>
+<td align="center"><strong>Demo 2</strong></td>
+</tr>
+<tr>
+<td>
+<video width="300" controls>
+  <source src="https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_1.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+</td>
+<td>
+<video width="300" controls>
+  <source src="https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_2.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+</td>
+</tr>
+</table>
 
 For more details, see [FolderPickerView Documentation](Docs/Components/FolderPickerView.md).
 
