@@ -25,6 +25,9 @@ struct FileRowView: View {
     var searchContext: String? = nil
     var isInLockedFolder: Bool = false
 
+    // View configuration (controls long-press menu etc.)
+    var viewConfiguration: ViewConfiguration = .default
+
     private var isLocked: Bool { lockManager.isFileLocked(url.path) }
     private var lockIcon: String {
         lockManager.hasCustomPIN(url.path) ? "lock.fill" : "faceid"
@@ -43,6 +46,11 @@ struct FileRowView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             onTap?(url)
+        }
+        .onLongPressGesture(minimumDuration: viewConfiguration.longPressMenuThreshold) {
+            if viewConfiguration.enableLongPressMenu {
+                menuCoordinator.showBottomSheet(for: url)
+            }
         }
         .allowsHitTesting(true)
     }

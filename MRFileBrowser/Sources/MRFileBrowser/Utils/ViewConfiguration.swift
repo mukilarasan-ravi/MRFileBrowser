@@ -75,19 +75,33 @@ public struct ViewConfiguration {
     //(only applicable when viewMode is .both)
     public let startsInGridView: Bool
 
+    //Whether long-pressing a file/folder row opens the three-dot context menu.
+    //When true, a long press triggers the same bottom sheet as tapping the "⋯" button.
+    public let enableLongPressMenu: Bool
+
+    //Minimum duration (in seconds) the user must hold before the long-press menu fires.
+    //Only used when enableLongPressMenu is true. (default: 0.5)
+    public let longPressMenuThreshold: Double
+
     //Initialize view configuration
     //- Parameters:
     //  - viewMode: The supported view mode (default: .both)
     //  - gridConfiguration: Grid layout configuration (default: GridConfiguration())
     //  - startsInGridView: Whether to start in grid view when both are available (default: true)
+    //  - enableLongPressMenu: Whether long press on a row opens the context menu (default: false)
+    //  - longPressMenuThreshold: Hold duration in seconds to trigger the menu (default: 0.5)
     public init(
         viewMode: ViewMode = .both,
         gridConfiguration: GridConfiguration = GridConfiguration(),
-        startsInGridView: Bool = true
+        startsInGridView: Bool = true,
+        enableLongPressMenu: Bool = false,
+        longPressMenuThreshold: Double = 0.5
     ) {
         self.viewMode = viewMode
         self.gridConfiguration = gridConfiguration
         self.startsInGridView = startsInGridView
+        self.enableLongPressMenu = enableLongPressMenu
+        self.longPressMenuThreshold = longPressMenuThreshold
     }
 
     //Default configuration for backward compatibility
