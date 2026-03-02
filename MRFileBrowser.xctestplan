@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "3CE32A5B-182A-42E0-B7B9-387508ACBC97",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:MRFileBrowser.xcodeproj",
+        "identifier" : "ACF4B33A2EDC7777008BF840",
+        "name" : "MRFileBrowserTests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -21,6 +21,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		ACD1B5112F56394C001649AC /* MRFileBrowser.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MRFileBrowser.xctestplan; sourceTree = "<group>"; };
 		ACF4B3302EDC7777008BF840 /* MRFileBrowser.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MRFileBrowser.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACF4B33B2EDC7777008BF840 /* MRFileBrowserTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MRFileBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -60,6 +61,7 @@
 		ACF4B3262EDC7777008BF840 = {
 			isa = PBXGroup;
 			children = (
+				ACD1B5112F56394C001649AC /* MRFileBrowser.xctestplan */,
 				ACF4B3322EDC7777008BF840 /* MRFileBrowser */,
 				ACF4B33F2EDC7777008BF840 /* MRFileBrowserTests */,
 				ACF4B3312EDC7777008BF840 /* Products */,
