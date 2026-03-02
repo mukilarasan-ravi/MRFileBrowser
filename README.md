@@ -129,7 +129,7 @@ present(picker, animated: true)
 
 | Demo Video 1 | Demo Video 2 |
 |--------------|---------------|
-| 🎥 **[Folder & File Picker Demo 1](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_1.mp4)** | 🎥 **[Folder & File Picker Demo 2](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/raw/refs/heads/main/Docs/recordings/FolderFilePicker_2.mp4)** |
+| 🎥 **[Folder & File Picker Demo 1](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/tree/main/Docs/recordings/FolderFilePicker_1.mp4)** | 🎥 **[Folder & File Picker Demo 2](https://github.com/mukilarasan-ravi/MRFileBrowserDemo/tree/main/Docs/recordings/FolderFilePicker_2.mp4)** |
 | *Single selection demo* | *Multi selection demo* |
 
 For more details, see [FolderPickerView Documentation](Docs/Components/FolderPickerView.md).
