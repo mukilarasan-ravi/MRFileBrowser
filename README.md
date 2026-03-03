@@ -9,8 +9,53 @@ MRFileBrowser offers two main components:
 - **FileBrowserRootView**: A full-featured file browser with WiFi sharing capabilities, customizable themes, and advanced server configurations.
 - **FolderPickerView**: A reusable component that presents an expandable file system tree for selecting files or folders, with support for single/multiple selection modes and file type filtering.
 
+## Installation
 
-## FileBrowserRootView Basic config
+### CocoaPods
+
+Add the following line to your `Podfile`:
+
+```ruby
+pod 'MRFileBrowser', '~> 1.0.0'
+```
+
+Then run:
+
+```bash
+pod install
+```
+
+### Swift Package Manager
+
+#### Xcode Integration
+
+1. In Xcode, go to `File` → `Add Package Dependencies...`
+2. Enter the repository URL:
+   ```
+   https://github.com/mukilarasan-ravi/MRFileBrowser.git
+   ```
+3. Select the version rule (e.g., "Up to Next Major Version" with "1.0.0")
+4. Click `Add Package`
+
+#### Package.swift
+
+Add the following dependency to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/mukilarasan-ravi/MRFileBrowser.git", from: "1.0.0")
+],
+targets: [
+    .target(
+        name: "YourTarget",
+        dependencies: ["MRFileBrowser"]
+    )
+]
+```
+
+## Usage
+
+### FileBrowserRootView Basic config
 
 ```swift
 import SwiftUI
