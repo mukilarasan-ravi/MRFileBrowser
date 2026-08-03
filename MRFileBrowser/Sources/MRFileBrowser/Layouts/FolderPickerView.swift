@@ -40,6 +40,7 @@ public struct FolderPickerConfiguration {
     public let defaultSelectedPaths: [URL]?
     public let allowMultipleSelection: Bool
     public let allowedExtensions: Set<String>?
+    public let showHiddenFiles: Bool
 
     public init(
         title: String = "Choose Folder",
@@ -52,7 +53,8 @@ public struct FolderPickerConfiguration {
         itemType: ItemType = .folderOnly,
         defaultSelectedPaths: [URL]? = nil,
         allowMultipleSelection: Bool = false,
-        allowedExtensions: Set<String>? = nil
+        allowedExtensions: Set<String>? = nil,
+        showHiddenFiles: Bool = false
     ) {
         self.title = title
         self.allowedRootPath = allowedRootPath
@@ -66,6 +68,7 @@ public struct FolderPickerConfiguration {
         self.defaultSelectedPaths = defaultSelectedPaths
         self.allowMultipleSelection = allowMultipleSelection
         self.allowedExtensions = allowedExtensions
+        self.showHiddenFiles = showHiddenFiles
     }
 }
 
@@ -221,7 +224,7 @@ public struct FolderPickerView: View {
             let contents = try fileManager.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
+                options: configuration.showHiddenFiles ? [] : [.skipsHiddenFiles]
             ).map { url.appendingPathComponent($0.lastPathComponent) }
 
             let subfolders = contents.filter { $0.isDirectory }

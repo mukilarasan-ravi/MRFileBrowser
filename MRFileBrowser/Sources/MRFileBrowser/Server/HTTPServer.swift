@@ -21,12 +21,14 @@ class HTTPServer: ObservableObject {
     private var rootDirectory: URL
     private var connections: [NWConnection] = []
     private let serverConfiguration: ServerConfiguration
+    private let showHiddenFiles: Bool
 
-    init(port: UInt16 = 8080, rootDirectory: URL, serverConfiguration: ServerConfiguration = ServerConfiguration()) {
+    init(port: UInt16 = 8080, rootDirectory: URL, serverConfiguration: ServerConfiguration = ServerConfiguration(), showHiddenFiles: Bool = false) {
         self.preferredPort = port
         self.actualPort = port
         self.rootDirectory = rootDirectory
         self.serverConfiguration = serverConfiguration
+        self.showHiddenFiles = showHiddenFiles
     }
 
     private func checkDirectoryPermissions() -> Bool {
@@ -428,7 +430,7 @@ class HTTPServer: ObservableObject {
         }
 
         do {
-            let contents = try FileManager.default.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey], options: [.skipsHiddenFiles])
+            let contents = try FileManager.default.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey], options: showHiddenFiles ? [] : [.skipsHiddenFiles])
 
             let relativePath = directoryURL.path.replacingOccurrences(of: rootDirectory.path, with: "")
             let title = relativePath.isEmpty ? "Root Directory" : relativePath

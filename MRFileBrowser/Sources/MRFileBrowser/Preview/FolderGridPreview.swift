@@ -10,11 +10,12 @@ import SwiftUI
 struct FolderGridPreview: View {
     let url: URL
     let size: CGFloat   // total square size for the folder preview
+    var showHiddenFiles: Bool = false
     @Environment(\.themeConfiguration) private var theme
 
     private var children: [URL] {
         let fm = FileManager.default
-        return (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+        return (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: showHiddenFiles ? [] : [.skipsHiddenFiles])) ?? []
     }
 
     var body: some View {

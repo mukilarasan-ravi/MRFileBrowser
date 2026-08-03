@@ -13,6 +13,7 @@ struct SearchTextChangeModifier: ViewModifier {
     let searchText: String
     let searchUtil: SearchUtil
     let folderURL: URL
+    var showHiddenFiles: Bool = false
     let onUpdate: ([SearchResult], Bool) -> Void
 
     @State private var lastSearchText = ""
@@ -39,7 +40,7 @@ struct SearchTextChangeModifier: ViewModifier {
             onUpdate([], false)
         } else {
             onUpdate([], true) // Set searching state
-            searchUtil.performRecursiveSearch(in: folderURL, query: newValue, currentNavigationPath: folderURL) { results in
+            searchUtil.performRecursiveSearch(in: folderURL, query: newValue, currentNavigationPath: folderURL, showHiddenFiles: showHiddenFiles) { results in
                 onUpdate(results, false)
             }
         }

@@ -115,7 +115,7 @@ private extension FileRowView {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         // Show normal folder preview for unlocked folders (including empty folders)
-                        FolderGridPreview(url: url, size: width * 0.70)
+                        FolderGridPreview(url: url, size: width * 0.70, showHiddenFiles: viewConfiguration.showHiddenFiles)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {

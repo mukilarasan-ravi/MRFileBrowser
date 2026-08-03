@@ -83,6 +83,10 @@ public struct ViewConfiguration {
     //Only used when enableLongPressMenu is true. (default: 0.5)
     public let longPressMenuThreshold: Double
 
+    //Whether dotfiles/dot-folders (e.g. ".git", ".DS_Store") are listed.
+    //Applies to the main browser listing, search, folder thumbnails, and the local web server. (default: false)
+    public let showHiddenFiles: Bool
+
     //Initialize view configuration
     //- Parameters:
     //  - viewMode: The supported view mode (default: .both)
@@ -90,18 +94,21 @@ public struct ViewConfiguration {
     //  - startsInGridView: Whether to start in grid view when both are available (default: true)
     //  - enableLongPressMenu: Whether long press on a row opens the context menu (default: false)
     //  - longPressMenuThreshold: Hold duration in seconds to trigger the menu (default: 0.5)
+    //  - showHiddenFiles: Whether dotfiles/dot-folders are listed (default: false)
     public init(
         viewMode: ViewMode = .both,
         gridConfiguration: GridConfiguration = GridConfiguration(),
         startsInGridView: Bool = true,
         enableLongPressMenu: Bool = false,
-        longPressMenuThreshold: Double = 0.5
+        longPressMenuThreshold: Double = 0.5,
+        showHiddenFiles: Bool = false
     ) {
         self.viewMode = viewMode
         self.gridConfiguration = gridConfiguration
         self.startsInGridView = startsInGridView
         self.enableLongPressMenu = enableLongPressMenu
         self.longPressMenuThreshold = longPressMenuThreshold
+        self.showHiddenFiles = showHiddenFiles
     }
 
     //Default configuration for backward compatibility

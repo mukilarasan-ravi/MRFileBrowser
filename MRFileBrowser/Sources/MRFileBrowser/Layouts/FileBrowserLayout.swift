@@ -181,7 +181,7 @@ public struct FileBrowserLayout: View {
         _titleName = titleName
         self.serverConfiguration = serverConfiguration
         self.viewConfiguration = viewConfiguration
-        self.serverManager = FileServerManager(serverConfiguration: serverConfiguration)
+        self.serverManager = FileServerManager(serverConfiguration: serverConfiguration, showHiddenFiles: viewConfiguration.showHiddenFiles)
 
         // Seed local shared state from configuration. Only read when this
         // instance is the root; pushed children inherit via environment and
@@ -737,7 +737,7 @@ public struct FileBrowserLayout: View {
                 .padding(10)
                 .background(theme.secondaryBackgroundColor)
                 .cornerRadius(8)
-                .modifier(SearchTextChangeModifier(searchText: searchText, searchUtil: searchUtil, folderURL: folderURL) { results, isSearching in
+                .modifier(SearchTextChangeModifier(searchText: searchText, searchUtil: searchUtil, folderURL: folderURL, showHiddenFiles: viewConfiguration.showHiddenFiles) { results, isSearching in
                     self.searchResults = results
                     self.isSearching = isSearching
                 })
@@ -944,7 +944,7 @@ public struct FileBrowserLayout: View {
         items = (try? fm.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: viewConfiguration.showHiddenFiles ? [] : [.skipsHiddenFiles]
         )) ?? []
     }
 
@@ -1462,7 +1462,7 @@ public struct FileBrowserLayout: View {
         let url = URL(fileURLWithPath: path)
 
         do {
-            let items = try fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            let items = try fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: viewConfiguration.showHiddenFiles ? [] : [.skipsHiddenFiles])
             return items.count
         } catch {
             return 0

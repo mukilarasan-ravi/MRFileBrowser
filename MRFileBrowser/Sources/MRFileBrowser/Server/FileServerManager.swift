@@ -20,9 +20,11 @@ class FileServerManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     private let serverConfiguration: ServerConfiguration
+    private let showHiddenFiles: Bool
 
-    init(serverConfiguration: ServerConfiguration = ServerConfiguration()) {
+    init(serverConfiguration: ServerConfiguration = ServerConfiguration(), showHiddenFiles: Bool = false) {
         self.serverConfiguration = serverConfiguration
+        self.showHiddenFiles = showHiddenFiles
         setupBackgroundHandling()
     }
 
@@ -30,7 +32,7 @@ class FileServerManager: ObservableObject {
         stopServer() // Stop any existing server
 
         currentRootDirectory = rootDirectory
-        server = HTTPServer(port: port, rootDirectory: rootDirectory, serverConfiguration: serverConfiguration)
+        server = HTTPServer(port: port, rootDirectory: rootDirectory, serverConfiguration: serverConfiguration, showHiddenFiles: showHiddenFiles)
 
         server?.start()
 

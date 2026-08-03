@@ -52,6 +52,7 @@ class SearchUtil {
         in directory: URL,
         query: String,
         currentNavigationPath: URL,
+        showHiddenFiles: Bool = false,
         completion: @escaping ([SearchResult]) -> Void
     ) {
         DispatchQueue.global(qos: .userInitiated).async {
@@ -60,7 +61,8 @@ class SearchUtil {
                 query: query,
                 basePath: "",
                 lockedParents: [],
-                currentNavigationPath: currentNavigationPath
+                currentNavigationPath: currentNavigationPath,
+                showHiddenFiles: showHiddenFiles
             )
 
             DispatchQueue.main.async {
@@ -82,7 +84,8 @@ class SearchUtil {
         query: String,
         basePath: String,
         lockedParents: [URL],
-        currentNavigationPath: URL
+        currentNavigationPath: URL,
+        showHiddenFiles: Bool
     ) -> [SearchResult] {
         var results: [SearchResult] = []
         let fm = FileManager.default
@@ -91,7 +94,7 @@ class SearchUtil {
             let contents = try fm.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
+                options: showHiddenFiles ? [] : [.skipsHiddenFiles]
             )
 
             for item in contents {
@@ -136,7 +139,8 @@ class SearchUtil {
                         query: query,
                         basePath: newBasePath,
                         lockedParents: newLockedParents,
-                        currentNavigationPath: currentNavigationPath
+                        currentNavigationPath: currentNavigationPath,
+                        showHiddenFiles: showHiddenFiles
                     )
                     results.append(contentsOf: subResults)
                 }
