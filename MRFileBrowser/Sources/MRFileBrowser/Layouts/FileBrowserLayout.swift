@@ -69,6 +69,34 @@ struct PreviewItem: Identifiable {
     let url: URL
 }
 
+// Shared runtime state for a FileBrowserLayout navigation stack. The root
+// retains an instance via @State; pushed children inherit the same instance
+// through Environment, so mutations at any level (toggle list/grid, change
+// column count, future flags) apply across every folder in the stack.
+//
+// Add new shared view-state here rather than creating parallel environment
+// keys — callers read/write via `layoutState.<field>`.
+final class LayoutState: ObservableObject {
+    @Published var isGridView: Bool
+    @Published var columnsCount: Int
+
+    init(isGridView: Bool, columnsCount: Int) {
+        self.isGridView = isGridView
+        self.columnsCount = columnsCount
+    }
+}
+
+private struct LayoutStateKey: EnvironmentKey {
+    static let defaultValue: LayoutState? = nil
+}
+
+extension EnvironmentValues {
+    var layoutState: LayoutState? {
+        get { self[LayoutStateKey.self] }
+        set { self[LayoutStateKey.self] = newValue }
+    }
+}
+
 //File Browser Main UI
 public struct FileBrowserLayout: View {
 
@@ -81,8 +109,39 @@ public struct FileBrowserLayout: View {
 
     private let viewConfiguration: ViewConfiguration
 
-    @State private var isGridView: Bool
-    @State private var columnsCount: Int
+    // Shared state routing:
+    //  - At the root, `localLayoutState` is the source of truth. We use @State
+    //    (not @StateObject, for iOS 13 compatibility) — @State retains the
+    //    reference across rebuilds; @Published observation is re-established
+    //    via `.onReceive(...)` + `layoutStateTick` in body.
+    //  - Pushed children receive the parent's instance via
+    //    `.environment(\.layoutState, ...)` and read it through
+    //    `inheritedLayoutState`.
+    @State private var localLayoutState: LayoutState
+    @State private var layoutStateTick: Int = 0
+    @Environment(\.layoutState) private var inheritedLayoutState: LayoutState?
+
+    private var layoutState: LayoutState {
+        inheritedLayoutState ?? localLayoutState
+    }
+
+    private var isGridView: Bool {
+        get { layoutState.isGridView }
+        nonmutating set { layoutState.isGridView = newValue }
+    }
+
+    private var columnsCount: Int {
+        get { layoutState.columnsCount }
+        nonmutating set { layoutState.columnsCount = newValue }
+    }
+
+    private var isGridViewBinding: Binding<Bool> {
+        Binding(get: { layoutState.isGridView }, set: { layoutState.isGridView = $0 })
+    }
+
+    private var columnsCountBinding: Binding<Int> {
+        Binding(get: { layoutState.columnsCount }, set: { layoutState.columnsCount = $0 })
+    }
 
     @State private var items: [URL] = []
     @State private var showSearchBar = false
@@ -124,57 +183,73 @@ public struct FileBrowserLayout: View {
         self.viewConfiguration = viewConfiguration
         self.serverManager = FileServerManager(serverConfiguration: serverConfiguration)
 
-        // Initialize view state based on configuration
+        // Seed local shared state from configuration. Only read when this
+        // instance is the root; pushed children inherit via environment and
+        // never touch their own local instance.
+        let initialIsGrid: Bool
         switch viewConfiguration.viewMode {
         case .listView:
-            self._isGridView = State(initialValue: false)
+            initialIsGrid = false
         case .gridView:
-            self._isGridView = State(initialValue: true)
+            initialIsGrid = true
         case .both:
-            self._isGridView = State(initialValue: viewConfiguration.startsInGridView)
+            initialIsGrid = viewConfiguration.startsInGridView
         }
 
-        self._columnsCount = State(initialValue: viewConfiguration.gridConfiguration.columnsCount)
+        self._localLayoutState = State(initialValue: LayoutState(
+            isGridView: initialIsGrid,
+            columnsCount: viewConfiguration.gridConfiguration.columnsCount
+        ))
     }
 
     // MARK: - Body
     public var body: some View {
-        if #available(iOS 14.0, *) {
-            FileBrowserContent()
-                .toast()
-                .onAppear(perform: loadItems)
-                .onChange(of: columnsCount) { newValue in
-                    // Ensure columnsCount stays within configured bounds
-                    let clampedValue = viewConfiguration.gridConfiguration.clampColumnCount(newValue)
-                    if clampedValue != newValue {
-                        columnsCount = clampedValue
-                    }
-                }
-                .onChange(of: isGridView) { newValue in
-                    // Ensure view mode respects configuration
-                    switch viewConfiguration.viewMode {
-                    case .listView:
-                        if newValue { isGridView = false }
-                    case .gridView:
-                        if !newValue { isGridView = true }
-                    case .both:
-                        // Allow any value for .both mode
-                        break
-                    }
-                }
-                .navigationBarBackButtonHidden(true)
-                .sheet(isPresented: $menuCoordinator.showShareSheet) {
-                    ShareSheet(items: menuCoordinator.shareItems)
-                }
+        // Reading `layoutStateTick` here makes SwiftUI rebuild body whenever
+        // the tick is bumped by `.onReceive(layoutState.objectWillChange)`.
+        // Without this, @State reference-type mutations wouldn't redraw us.
+        let _ = layoutStateTick
 
-        } else {
-            FileBrowserContent()
-                .toast()
-                .onAppear(perform: loadItems)
-                .navigationBarBackButtonHidden(true)
-                .sheet(isPresented: $menuCoordinator.showShareSheet) {
-                    ShareSheet(items: menuCoordinator.shareItems)
-                }
+        return Group {
+            if #available(iOS 14.0, *) {
+                FileBrowserContent()
+                    .toast()
+                    .onAppear(perform: loadItems)
+                    .onChange(of: columnsCount) { newValue in
+                        // Ensure columnsCount stays within configured bounds
+                        let clampedValue = viewConfiguration.gridConfiguration.clampColumnCount(newValue)
+                        if clampedValue != newValue {
+                            columnsCount = clampedValue
+                        }
+                    }
+                    .onChange(of: isGridView) { newValue in
+                        // Ensure view mode respects configuration
+                        switch viewConfiguration.viewMode {
+                        case .listView:
+                            if newValue { isGridView = false }
+                        case .gridView:
+                            if !newValue { isGridView = true }
+                        case .both:
+                            // Allow any value for .both mode
+                            break
+                        }
+                    }
+                    .navigationBarBackButtonHidden(true)
+                    .sheet(isPresented: $menuCoordinator.showShareSheet) {
+                        ShareSheet(items: menuCoordinator.shareItems)
+                    }
+
+            } else {
+                FileBrowserContent()
+                    .toast()
+                    .onAppear(perform: loadItems)
+                    .navigationBarBackButtonHidden(true)
+                    .sheet(isPresented: $menuCoordinator.showShareSheet) {
+                        ShareSheet(items: menuCoordinator.shareItems)
+                    }
+            }
+        }
+        .onReceive(layoutState.objectWillChange) { _ in
+            layoutStateTick &+= 1
         }
     }
 
@@ -204,8 +279,8 @@ public struct FileBrowserLayout: View {
                     isRoot: isRoot,
                     showSearchBar: $showSearchBar,
                     titleName: $titleName,
-                    isGridView: $isGridView,
-                    columnsCount: $columnsCount,
+                    isGridView: isGridViewBinding,
+                    columnsCount: columnsCountBinding,
                     showsSearch: !folderURL.isTrashFolder, // disable search in trash folder
                     viewConfiguration: viewConfiguration,
                     onBack: goBack
@@ -641,6 +716,7 @@ public struct FileBrowserLayout: View {
                 serverConfiguration: serverConfiguration,
                 viewConfiguration: viewConfiguration
             )
+            .environment(\.layoutState, layoutState)
         }
     }
 

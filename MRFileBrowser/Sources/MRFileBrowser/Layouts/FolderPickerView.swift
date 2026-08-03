@@ -75,8 +75,12 @@ public struct FolderPickerView: View {
     public weak var delegate: FolderPickerDelegate?
     public let configuration: FolderPickerConfiguration
 
-    @State private var selectedItems: Set<URL> = []
-    @State private var expandedFolders: Set<URL> = []
+    // Keyed by `.path` rather than the `URL` itself - `URL` equality also factors in
+    // internal flags like `hasDirectoryPath`, which can diverge between a URL built from
+    // an external path string and one enumerated via FileManager, even when `.path` is
+    // identical. Comparing plain paths matches how the rest of this file already resolves paths.
+    @State private var selectedItems: Set<String> = []
+    @State private var expandedFolders: Set<String> = []
     @State private var folderTree: [FolderNode] = []
     @State private var viewHeight: CGFloat = 400
     @Environment(\.themeConfiguration) private var theme
@@ -118,7 +122,7 @@ public struct FolderPickerView: View {
 
                 Button(configuration.confirmButtonTitle) {
                     if !selectedItems.isEmpty {
-                        delegate?.folderPicker(self, selectItems: Array(selectedItems))
+                        delegate?.folderPicker(self, selectItems: selectedItems.map { URL(fileURLWithPath: $0) })
                     }
                 }
                 .foregroundColor(hasSelection ? theme.primaryColor : theme.primaryTextColor.opacity(0.3))
@@ -207,11 +211,18 @@ public struct FolderPickerView: View {
     private func createChildNode(for url: URL, level: Int) -> FolderNode? {
         let fileManager = FileManager.default
         do {
+            // Rebuild each entry from `url` (the exact URL this node was constructed with)
+            // rather than trusting contentsOfDirectory's own URLs directly: on iOS, `/var`
+            // is a symlink to `/private/var`, and contentsOfDirectory returns the resolved
+            // `/private/var/...` form while allowedRootPath/defaultSelectedPaths (built via
+            // FileManager.urls(for:in:)) stay in the unresolved `/var/...` form. That mismatch
+            // makes node.url fail to match selectedItems/expandedFolders even when both
+            // represent the same file. Rebuilding keeps every node in `url`'s own representation.
             let contents = try fileManager.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: [.isDirectoryKey],
                 options: [.skipsHiddenFiles]
-            )
+            ).map { url.appendingPathComponent($0.lastPathComponent) }
 
             let subfolders = contents.filter { $0.isDirectory }
                 .filter { subfolder in
@@ -285,10 +296,10 @@ public struct FolderPickerView: View {
     }
 
     private func toggleFolder(_ url: URL) {
-        if expandedFolders.contains(url) {
-            expandedFolders.remove(url)
+        if expandedFolders.contains(url.path) {
+            expandedFolders.remove(url.path)
         } else {
-            expandedFolders.insert(url)
+            expandedFolders.insert(url.path)
         }
     }
     private func setDefaultSelection() {
@@ -308,12 +319,12 @@ public struct FolderPickerView: View {
         if configuration.allowMultipleSelection {
             // Add all valid paths for multiple selection
             for path in validPaths {
-                selectedItems.insert(path)
+                selectedItems.insert(path.path)
             }
         } else {
             // Use the first valid path for single selection
             if let firstPath = validPaths.first {
-                selectedItems.insert(firstPath)
+                selectedItems.insert(firstPath.path)
             }
         }
 
@@ -404,7 +415,7 @@ public struct FolderPickerView: View {
     }
     private func expandPathToFolder(_ targetPath: URL) {
         // First, always expand the root folder if it contains subfolders
-        expandedFolders.insert(configuration.allowedRootPath)
+        expandedFolders.insert(configuration.allowedRootPath.path)
         var currentPath = configuration.allowedRootPath
         let targetComponents = targetPath.pathComponents
         let rootComponents = currentPath.pathComponents
@@ -414,7 +425,7 @@ public struct FolderPickerView: View {
             currentPath = currentPath.appendingPathComponent(component)
             // Expand this folder if it exists and is not the final target
             if currentPath.path != targetPath.path && FileManager.default.fileExists(atPath: currentPath.path) {
-                expandedFolders.insert(currentPath)
+                expandedFolders.insert(currentPath.path)
             }
         }
     }
@@ -424,8 +435,8 @@ public struct FolderPickerView: View {
 
     //Folder Tree Row
     private func folderTreeRow(_ node: FolderNode) -> some View {
-        let isSelected = selectedItems.contains(node.url)
-        let isExpanded = expandedFolders.contains(node.url)
+        let isSelected = selectedItems.contains(node.url.path)
+        let isExpanded = expandedFolders.contains(node.url.path)
 
         return VStack(alignment: .leading, spacing: 0) {
             // Main item button (folder or file)
@@ -435,10 +446,10 @@ public struct FolderPickerView: View {
 
                 // If it's a folder and fileOnly mode, toggle expansion instead of selection
                 if configuration.itemType == .fileOnly && isDirectory {
-                    if expandedFolders.contains(node.url) {
-                        expandedFolders.remove(node.url)
+                    if expandedFolders.contains(node.url.path) {
+                        expandedFolders.remove(node.url.path)
                     } else {
-                        expandedFolders.insert(node.url)
+                        expandedFolders.insert(node.url.path)
                     }
                 } else {
                     // Handle selection - check lock selectability mode
@@ -453,15 +464,15 @@ public struct FolderPickerView: View {
                     if shouldSelect {
                         if configuration.allowMultipleSelection {
                             // Toggle selection for multiple selection mode
-                            if selectedItems.contains(node.url) {
-                                selectedItems.remove(node.url)
+                            if selectedItems.contains(node.url.path) {
+                                selectedItems.remove(node.url.path)
                             } else {
-                                selectedItems.insert(node.url)
+                                selectedItems.insert(node.url.path)
                             }
                         } else {
                             // Single selection mode - clear previous and select new
                             selectedItems.removeAll()
-                            selectedItems.insert(node.url)
+                            selectedItems.insert(node.url.path)
                         }
                     }
                 }
