@@ -157,7 +157,7 @@ public struct FileBrowserLayout: View {
     @State private var showServerStopConfirmation = false
     @State private var serverStopAlertText = ""
 
-    @ObservedObject private var menuCoordinator = MenuCoordinator()
+    @ObservedObject private var menuCoordinator: MenuCoordinator
     @ObservedObject private var serverManager: FileServerManager
 
     // Server configuration
@@ -182,6 +182,7 @@ public struct FileBrowserLayout: View {
         self.serverConfiguration = serverConfiguration
         self.viewConfiguration = viewConfiguration
         self.serverManager = FileServerManager(serverConfiguration: serverConfiguration, showHiddenFiles: viewConfiguration.showHiddenFiles)
+        self._menuCoordinator = ObservedObject(wrappedValue: MenuCoordinator(sortBy: viewConfiguration.defaultSortBy, sortOrder: viewConfiguration.defaultSortOrder))
 
         // Seed local shared state from configuration. Only read when this
         // instance is the root; pushed children inherit via environment and

@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-enum SortOption: CaseIterable {
+public enum SortOption: CaseIterable {
     case name, dateModified, size
 
     var displayName: String {
@@ -28,7 +28,7 @@ enum SortOption: CaseIterable {
     }
 }
 
-enum SortOrder {
+public enum SortOrder {
     case ascending, descending
 
     var displayName: String {
@@ -98,6 +98,11 @@ final class MenuCoordinator: ObservableObject {
     @Published var showSearchUnlockConfirmation: Bool = false
     @Published var searchUnlockTitle: String = ""
     @Published var searchUnlockAction: (() -> Void)? = nil
+
+    init(sortBy: SortOption = .name, sortOrder: SortOrder = .ascending) {
+        self.sortBy = sortBy
+        self.sortOrder = sortOrder
+    }
 
     func showBottomSheet(for file: URL) {
         selectedFile = file

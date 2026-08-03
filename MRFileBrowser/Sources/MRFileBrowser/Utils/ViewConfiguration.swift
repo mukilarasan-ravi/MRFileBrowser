@@ -87,6 +87,12 @@ public struct ViewConfiguration {
     //Applies to the main browser listing, search, folder thumbnails, and the local web server. (default: false)
     public let showHiddenFiles: Bool
 
+    //The sort field the file/folder list starts with, before the user opens the sort menu. (default: .name)
+    public let defaultSortBy: SortOption
+
+    //The sort direction the file/folder list starts with, before the user opens the sort menu. (default: .ascending)
+    public let defaultSortOrder: SortOrder
+
     //Initialize view configuration
     //- Parameters:
     //  - viewMode: The supported view mode (default: .both)
@@ -95,13 +101,17 @@ public struct ViewConfiguration {
     //  - enableLongPressMenu: Whether long press on a row opens the context menu (default: false)
     //  - longPressMenuThreshold: Hold duration in seconds to trigger the menu (default: 0.5)
     //  - showHiddenFiles: Whether dotfiles/dot-folders are listed (default: false)
+    //  - defaultSortBy: Initial sort field (default: .name)
+    //  - defaultSortOrder: Initial sort direction (default: .ascending)
     public init(
         viewMode: ViewMode = .both,
         gridConfiguration: GridConfiguration = GridConfiguration(),
         startsInGridView: Bool = true,
         enableLongPressMenu: Bool = false,
         longPressMenuThreshold: Double = 0.5,
-        showHiddenFiles: Bool = false
+        showHiddenFiles: Bool = false,
+        defaultSortBy: SortOption = .name,
+        defaultSortOrder: SortOrder = .ascending
     ) {
         self.viewMode = viewMode
         self.gridConfiguration = gridConfiguration
@@ -109,6 +119,8 @@ public struct ViewConfiguration {
         self.enableLongPressMenu = enableLongPressMenu
         self.longPressMenuThreshold = longPressMenuThreshold
         self.showHiddenFiles = showHiddenFiles
+        self.defaultSortBy = defaultSortBy
+        self.defaultSortOrder = defaultSortOrder
     }
 
     //Default configuration for backward compatibility
